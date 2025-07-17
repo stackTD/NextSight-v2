@@ -61,6 +61,10 @@ class ZoneManager(QObject):
             'zones_deleted': 0
         }
         
+        # Hand consistency tracking for pick/drop operations
+        self.active_picks = {}  # hand_id -> {'zone_id': str, 'timestamp': float}
+        self.processed_events = set()  # Track processed events to prevent duplicates
+        
         # Setup connections and timers
         self.setup_connections()
         self.setup_timers()
@@ -148,6 +152,16 @@ class ZoneManager(QObject):
             if zone and self.config.remove_zone(zone_id):
                 self.session_stats['zones_deleted'] += 1
                 self.intersection_detector.reset_zone_states(zone_id)
+                
+                # Clear any hand consistency tracking related to this zone
+                hands_to_clear = []
+                for hand_id, pick_info in self.active_picks.items():
+                    if pick_info['zone_id'] == zone_id:
+                        hands_to_clear.append(hand_id)
+                
+                for hand_id in hands_to_clear:
+                    self.active_picks.pop(hand_id)
+                    self.logger.info(f"Cleared pending pick for {hand_id} due to zone deletion")
                 
                 # Emit deletion signal BEFORE saving to ensure UI updates
                 self.zone_deleted.emit(zone_id)
@@ -240,34 +254,106 @@ class ZoneManager(QObject):
         """Process zone interaction events for pick/drop detection"""
         for event in events:
             try:
+                # Create unique event identifier to prevent duplicate processing
+                event_key = f"{event['type']}_{event['hand_id']}_{event['zone_id']}_{event.get('timestamp', time.time())}"
+                
+                # Skip if we've already processed this exact event
+                if event_key in self.processed_events:
+                    continue
+                
                 if event['type'] == 'hand_enter_zone':
                     zone = self.config.get_zone(event['zone_id'])
                     if zone:
-                        if zone.zone_type == ZoneType.PICK:
-                            self.pick_events.append(event)
-                            self.session_stats['total_picks'] += 1
-                            self.pick_event_detected.emit(event['hand_id'], event['zone_id'])
-                            self.logger.info(f"Pick event: {event['hand_id']} in {event['zone_id']}")
+                        # Create a more specific key for enter events to prevent multiple counts
+                        enter_key = f"enter_{event['hand_id']}_{event['zone_id']}"
                         
-                        elif zone.zone_type == ZoneType.DROP:
-                            self.drop_events.append(event)
-                            self.session_stats['total_drops'] += 1
-                            self.drop_event_detected.emit(event['hand_id'], event['zone_id'])
-                            self.logger.info(f"Drop event: {event['hand_id']} in {event['zone_id']}")
+                        if enter_key not in self.processed_events:
+                            if zone.zone_type == ZoneType.PICK:
+                                self.pick_events.append(event)
+                                self.session_stats['total_picks'] += 1
+                                
+                                # Track this pick for hand consistency
+                                self.active_picks[event['hand_id']] = {
+                                    'zone_id': event['zone_id'],
+                                    'timestamp': event.get('timestamp', time.time())
+                                }
+                                
+                                self.pick_event_detected.emit(event['hand_id'], event['zone_id'])
+                                self.logger.info(f"Pick event: {event['hand_id']} in {event['zone_id']}")
+                                
+                                # Mark this enter event as processed
+                                self.processed_events.add(enter_key)
+                            
+                            elif zone.zone_type == ZoneType.DROP:
+                                # Check hand consistency for drop operations
+                                hand_id = event['hand_id']
+                                if hand_id in self.active_picks:
+                                    # Hand consistency enforced - same hand must drop
+                                    self.drop_events.append(event)
+                                    self.session_stats['total_drops'] += 1
+                                    
+                                    # Clear the pick tracking for this hand
+                                    pick_info = self.active_picks.pop(hand_id)
+                                    
+                                    self.drop_event_detected.emit(event['hand_id'], event['zone_id'])
+                                    self.logger.info(f"Drop event: {event['hand_id']} in {event['zone_id']} (consistent with pick from {pick_info['zone_id']})")
+                                    
+                                    # Mark this enter event as processed
+                                    self.processed_events.add(enter_key)
+                                else:
+                                    # Hand consistency violation - log but don't count
+                                    self.logger.warning(f"Drop attempt by {hand_id} rejected - no matching pick or different hand used")
 
                 elif event['type'] == 'pick_gesture_detected':
-                    # Handle pick gesture (pinch/closed hand)
-                    self.pick_events.append(event)
-                    self.session_stats['total_picks'] += 1
-                    self.pick_event_detected.emit(event['hand_id'], event['zone_id'])
-                    self.logger.info(f"Pick gesture: {event['hand_id']} performed {event['gesture']} in {event['zone_id']}")
+                    # Handle pick gesture (pinch/closed hand) - more reliable than zone entry
+                    pick_key = f"pick_gesture_{event['hand_id']}_{event['zone_id']}"
                     
+                    if pick_key not in self.processed_events:
+                        self.pick_events.append(event)
+                        self.session_stats['total_picks'] += 1
+                        
+                        # Track this pick for hand consistency
+                        self.active_picks[event['hand_id']] = {
+                            'zone_id': event['zone_id'],
+                            'timestamp': event.get('timestamp', time.time()),
+                            'gesture': event.get('gesture', 'unknown')
+                        }
+                        
+                        self.pick_event_detected.emit(event['hand_id'], event['zone_id'])
+                        self.logger.info(f"Pick gesture: {event['hand_id']} performed {event['gesture']} in {event['zone_id']}")
+                        
+                        # Mark as processed with a timeout to allow for natural gesture repetition
+                        self.processed_events.add(pick_key)
+                        
                 elif event['type'] == 'drop_gesture_detected':
-                    # Handle drop gesture (open hand)
-                    self.drop_events.append(event)
-                    self.session_stats['total_drops'] += 1
-                    self.drop_event_detected.emit(event['hand_id'], event['zone_id'])
-                    self.logger.info(f"Drop gesture: {event['hand_id']} performed {event['gesture']} in {event['zone_id']}")
+                    # Handle drop gesture (open hand) - more reliable than zone entry
+                    drop_key = f"drop_gesture_{event['hand_id']}_{event['zone_id']}"
+                    
+                    if drop_key not in self.processed_events:
+                        # Check hand consistency for drop operations
+                        hand_id = event['hand_id']
+                        if hand_id in self.active_picks:
+                            # Hand consistency enforced - same hand must drop
+                            self.drop_events.append(event)
+                            self.session_stats['total_drops'] += 1
+                            
+                            # Clear the pick tracking for this hand
+                            pick_info = self.active_picks.pop(hand_id)
+                            
+                            self.drop_event_detected.emit(event['hand_id'], event['zone_id'])
+                            self.logger.info(f"Drop gesture: {event['hand_id']} performed {event['gesture']} in {event['zone_id']} (consistent with pick from {pick_info['zone_id']})")
+                            
+                            # Mark as processed with a timeout to allow for natural gesture repetition
+                            self.processed_events.add(drop_key)
+                        else:
+                            # Hand consistency violation - log but don't count
+                            self.logger.warning(f"Drop gesture by {hand_id} rejected - no matching pick or different hand used")
+                
+                # Cleanup old processed events (keep only last 100 events to prevent memory bloat)
+                if len(self.processed_events) > 100:
+                    # Convert to list, sort by timestamp if available, keep recent ones
+                    events_list = list(self.processed_events)
+                    self.processed_events = set(events_list[-100:])
                 
             except Exception as e:
                 self.logger.error(f"Error processing interaction event: {e}")
@@ -376,6 +462,10 @@ class ZoneManager(QObject):
             self.pick_events.clear()
             self.drop_events.clear()
             
+            # Clear hand consistency tracking when zones are cleared
+            self.active_picks.clear()
+            self.processed_events.clear()
+            
             # Emit deletion signals for each zone to clear UI
             for zone_id in zone_ids:
                 self.zone_deleted.emit(zone_id)
@@ -418,7 +508,25 @@ class ZoneManager(QObject):
         }
         self.pick_events.clear()
         self.drop_events.clear()
+        self.active_picks.clear()  # Clear hand consistency tracking
+        self.processed_events.clear()  # Clear processed events tracking
         self.logger.info("Session statistics reset")
+    
+    def get_hand_consistency_status(self) -> Dict:
+        """Get current hand consistency status"""
+        return {
+            'active_picks': self.active_picks.copy(),
+            'hands_with_pending_picks': list(self.active_picks.keys()),
+            'pending_picks_count': len(self.active_picks)
+        }
+    
+    def clear_hand_consistency_for_hand(self, hand_id: str) -> bool:
+        """Clear hand consistency tracking for specific hand (e.g., when hand exits frame)"""
+        if hand_id in self.active_picks:
+            removed_pick = self.active_picks.pop(hand_id)
+            self.logger.info(f"Cleared pending pick for {hand_id} from zone {removed_pick['zone_id']}")
+            return True
+        return False
     
     def set_detection_settings(self, method: str = None, confidence: float = None):
         """Configure detection settings"""

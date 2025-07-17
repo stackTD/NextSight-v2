@@ -24,23 +24,28 @@ class HandZoneState:
         self.exit_time: Optional[float] = None
         self.confidence_history: List[float] = []
         self.stability_count = 0
-        self.required_stability = 3  # Frames needed for stable detection
+        self.required_stability = 5  # Increased frames needed for stable detection
+        self.last_event_time = 0.0  # Track last event to prevent rapid firing
+        self.min_event_interval = 1.0  # Minimum seconds between events
     
     def update_confidence(self, confidence: float) -> bool:
         """Update confidence and return if state should change"""
+        current_time = time.time()
+        
         self.confidence_history.append(confidence)
         
         # Keep only recent history
-        if len(self.confidence_history) > 10:
+        if len(self.confidence_history) > 15:
             self.confidence_history.pop(0)
         
         # Check for stable high confidence (entering zone)
         if not self.is_inside:
             recent_high = sum(1 for c in self.confidence_history[-self.required_stability:] 
                             if c > 0.6)
-            if recent_high >= self.required_stability:
+            if recent_high >= self.required_stability and (current_time - self.last_event_time) >= self.min_event_interval:
                 self.is_inside = True
-                self.entry_time = time.time()
+                self.entry_time = current_time
+                self.last_event_time = current_time
                 self.stability_count = 0
                 return True
         
@@ -48,9 +53,10 @@ class HandZoneState:
         else:
             recent_low = sum(1 for c in self.confidence_history[-self.required_stability:] 
                            if c < 0.3)
-            if recent_low >= self.required_stability:
+            if recent_low >= self.required_stability and (current_time - self.last_event_time) >= self.min_event_interval:
                 self.is_inside = False
-                self.exit_time = time.time()
+                self.exit_time = current_time
+                self.last_event_time = current_time
                 self.stability_count = 0
                 return True
         
@@ -83,6 +89,10 @@ class IntersectionDetector:
         # Performance settings
         self.detection_method = 'hybrid'  # 'point', 'bounding_box', 'hybrid'
         self.confidence_threshold = 0.6
+        
+        # Gesture detection cooldown tracking
+        self.last_gesture_events = {}  # hand_id -> {gesture_type: timestamp}
+        self.gesture_cooldown = 2.0  # Minimum seconds between same gesture events
         
         self.logger = logging.getLogger(__name__)
     
@@ -182,19 +192,34 @@ class IntersectionDetector:
                         event_type = "entered" if state.is_inside else "exited"
                         self.logger.info(f"Hand {hand_id} {event_type} zone {zone.id} (confidence: {intersection_result['confidence']:.2f}, gesture: {gesture})")
                     elif gesture in ['pinch', 'closed']:
-                        self.logger.info(f"Pick gesture detected: {hand_id} in zone {zone.id} (gesture: {gesture})")
-                        # Create pick event
-                        pick_event = event.copy()
-                        pick_event['type'] = 'pick_gesture_detected'
-                        pick_event['gesture'] = gesture
-                        results['events'].append(pick_event)
+                        # Check gesture cooldown before creating pick event
+                        if self._can_generate_gesture_event(hand_id, 'pick'):
+                            self.logger.info(f"Pick gesture detected: {hand_id} in zone {zone.id} (gesture: {gesture})")
+                            # Create pick event
+                            pick_event = event.copy()
+                            pick_event['type'] = 'pick_gesture_detected'
+                            pick_event['gesture'] = gesture
+                            results['events'].append(pick_event)
+                            
+                            # Update gesture cooldown
+                            self._update_gesture_cooldown(hand_id, 'pick')
+                        else:
+                            self.logger.debug(f"Pick gesture cooldown active for {hand_id}")
+                            
                     elif gesture == 'open':
-                        self.logger.info(f"Drop gesture detected: {hand_id} in zone {zone.id} (gesture: {gesture})")
-                        # Create drop event
-                        drop_event = event.copy()
-                        drop_event['type'] = 'drop_gesture_detected'
-                        drop_event['gesture'] = gesture
-                        results['events'].append(drop_event)
+                        # Check gesture cooldown before creating drop event
+                        if self._can_generate_gesture_event(hand_id, 'drop'):
+                            self.logger.info(f"Drop gesture detected: {hand_id} in zone {zone.id} (gesture: {gesture})")
+                            # Create drop event
+                            drop_event = event.copy()
+                            drop_event['type'] = 'drop_gesture_detected'
+                            drop_event['gesture'] = gesture
+                            results['events'].append(drop_event)
+                            
+                            # Update gesture cooldown
+                            self._update_gesture_cooldown(hand_id, 'drop')
+                        else:
+                            self.logger.debug(f"Drop gesture cooldown active for {hand_id}")
                     
                     # Update zone state
                     if state.is_inside:
@@ -328,6 +353,25 @@ class IntersectionDetector:
         """Set global confidence threshold"""
         self.confidence_threshold = max(0.1, min(1.0, threshold))
         self.logger.info(f"Intersection confidence threshold set to: {self.confidence_threshold}")
+    
+    def _can_generate_gesture_event(self, hand_id: str, gesture_type: str) -> bool:
+        """Check if enough time has passed to generate another gesture event"""
+        current_time = time.time()
+        
+        if hand_id not in self.last_gesture_events:
+            return True
+        
+        last_gesture_time = self.last_gesture_events[hand_id].get(gesture_type, 0.0)
+        return (current_time - last_gesture_time) >= self.gesture_cooldown
+    
+    def _update_gesture_cooldown(self, hand_id: str, gesture_type: str):
+        """Update the last gesture time for cooldown tracking"""
+        current_time = time.time()
+        
+        if hand_id not in self.last_gesture_events:
+            self.last_gesture_events[hand_id] = {}
+        
+        self.last_gesture_events[hand_id][gesture_type] = current_time
     
     def get_performance_stats(self) -> Dict:
         """Get performance statistics"""
