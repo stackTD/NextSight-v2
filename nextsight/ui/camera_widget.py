@@ -18,7 +18,7 @@ class CameraWidget(QWidget):
     
     # Signals
     clicked = pyqtSignal()
-    
+    zone_context_menu_requested = pyqtSignal()
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("cameraPanel")
@@ -166,10 +166,10 @@ class CameraWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
         # Draw FPS counter
-        fps_text = f"FPS: {self.fps_display:.1f}"
-        painter.setPen(QPen(Qt.GlobalColor.green, 2))
-        painter.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        painter.drawText(10, 25, fps_text)
+        # fps_text = f"FPS: {self.fps_display:.1f}"
+        # painter.setPen(QPen(Qt.GlobalColor.green, 2))
+        # painter.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        # painter.drawText(10, 25, fps_text)
         
         # Handle new detection info format
         y_offset = 50

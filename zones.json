@@ -1,5 +1,40 @@
 {
-  "zones": [],
+  "zones": [
+    {
+      "id": "pick_26346",
+      "name": "Pick Zone 2",
+      "zone_type": "pick",
+      "x": 0.54765625,
+      "y": 0.21944444444444444,
+      "width": 0.3046875,
+      "height": 0.3944444444444445,
+      "active": true,
+      "confidence_threshold": 0.7,
+      "color": "#00ff00",
+      "alpha": 0.3,
+      "border_width": 2,
+      "hands_inside": [],
+      "last_interaction": null,
+      "interaction_count": 0
+    },
+    {
+      "id": "drop_30644",
+      "name": "Drop Zone 1",
+      "zone_type": "drop",
+      "x": 0.14765625,
+      "y": 0.22916666666666666,
+      "width": 0.29765625,
+      "height": 0.3458333333333333,
+      "active": true,
+      "confidence_threshold": 0.7,
+      "color": "#0080ff",
+      "alpha": 0.3,
+      "border_width": 2,
+      "hands_inside": [],
+      "last_interaction": null,
+      "interaction_count": 0
+    }
+  ],
   "settings": {
     "default_pick_color": "#00ff00",
     "default_drop_color": "#0080ff",

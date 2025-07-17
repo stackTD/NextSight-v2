@@ -49,7 +49,7 @@ class CustomTitleBar(QWidget):
         layout.addWidget(self.logo_label)
         
         # Title
-        self.title_label = QLabel("NextSight v2 - Exhibition Demo")
+        self.title_label = QLabel("NextSight")
         self.title_label.setObjectName("titleLabel")
         self.title_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
         layout.addWidget(self.title_label)

@@ -52,17 +52,17 @@ class StatusBar(QStatusBar):
         self.camera_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.addPermanentWidget(self.camera_status)
         
-        # Detection status
-        self.detection_status = QLabel("Detection: Inactive")
-        self.detection_status.setMinimumWidth(130)
-        self.detection_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.addPermanentWidget(self.detection_status)
+        # # Detection status
+        # self.detection_status = QLabel("Detection: Inactive")
+        # self.detection_status.setMinimumWidth(130)
+        # self.detection_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # self.addPermanentWidget(self.detection_status)
         
-        # Hands counter
-        self.hands_counter = QLabel("Hands: 0")
-        self.hands_counter.setMinimumWidth(80)
-        self.hands_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.addPermanentWidget(self.hands_counter)
+        # # Hands counter
+        # self.hands_counter = QLabel("Hands: 0")
+        # self.hands_counter.setMinimumWidth(80)
+        # self.hands_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # self.addPermanentWidget(self.hands_counter)
         
         # FPS display
         self.fps_display = QLabel("FPS: 0.0")
@@ -102,7 +102,7 @@ class StatusBar(QStatusBar):
         self.addPermanentWidget(self.hand_interaction_status)
         
         # Keyboard instructions panel
-        self.keyboard_instructions = QLabel("Press F1 for help | Z: Toggle zones | 1: Create pick zone | 2: Create drop zone")
+        self.keyboard_instructions = QLabel("Press F1 for help")
         self.keyboard_instructions.setMinimumWidth(400)
         self.keyboard_instructions.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.keyboard_instructions.setStyleSheet("color: #66ccff; font-weight: bold; font-size: 9pt;")
@@ -130,20 +130,20 @@ class StatusBar(QStatusBar):
             self.camera_status.setText("Camera: Disconnected")
             self.camera_status.setStyleSheet("color: #ff6b6b; font-weight: bold;")
         
-        # Detection status
-        if self.is_detection_active:
-            self.detection_status.setText("Detection: Active")
-            self.detection_status.setStyleSheet("color: #00ff00; font-weight: bold;")
-        else:
-            self.detection_status.setText("Detection: Inactive")
-            self.detection_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
+        # # Detection status
+        # if self.is_detection_active:
+        #     self.detection_status.setText("Detection: Active")
+        #     self.detection_status.setStyleSheet("color: #00ff00; font-weight: bold;")
+        # else:
+        #     self.detection_status.setText("Detection: Inactive")
+        #     self.detection_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
         
         # Hands counter with color coding
-        self.hands_counter.setText(f"Hands: {self.hands_detected}")
-        if self.hands_detected > 0:
-            self.hands_counter.setStyleSheet("color: #00ff00; font-weight: bold;")
-        else:
-            self.hands_counter.setStyleSheet("color: #ffffff; font-weight: bold;")
+        # self.hands_counter.setText(f"Hands: {self.hands_detected}")
+        # if self.hands_detected > 0:
+        #     self.hands_counter.setStyleSheet("color: #00ff00; font-weight: bold;")
+        # else:
+        #     self.hands_counter.setStyleSheet("color: #ffffff; font-weight: bold;")
         
         # FPS display with performance color coding
         self.fps_display.setText(f"FPS: {self.current_fps:.1f}")

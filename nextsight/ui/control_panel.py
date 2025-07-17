@@ -221,8 +221,9 @@ class EnhancedControlPanel(QWidget):
         shortcuts_content = """H - Toggle Hand Detection
 B - Toggle Pose Detection  
 P - Toggle Pose Landmarks
-G - Toggle Gesture Recognition
-L - Toggle Landmarks
+Z - Toggle Zone Detection
+1 - Create Pick zone
+2 - Create Drop zone
 C - Toggle Connections
 R - Reset Settings
 ESC - Exit Application"""

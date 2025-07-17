@@ -143,8 +143,8 @@ class MultiModalDetector:
         # Performance info
         if estimated_fps > 0:
             fps_color = (0, 255, 0) if estimated_fps >= 30 else (0, 255, 255) if estimated_fps >= 20 else (0, 0, 255)
-            cv2.putText(frame, f"FPS: {estimated_fps:.1f}", (10, y_offset), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, fps_color, 2)
+            # cv2.putText(frame, f"FPS: {estimated_fps:.1f}", (10, y_offset), 
+            #            cv2.FONT_HERSHEY_SIMPLEX, 0.6, fps_color, 2)
     
     # Hand detection controls
     def toggle_hand_detection(self) -> bool:

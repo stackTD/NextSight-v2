@@ -120,8 +120,8 @@ class NextSightApplication:
         main_widget.camera_switch_requested.connect(self.switch_camera)
         
         # New Phase 2 control connections
-        main_widget.toggle_hand_detection_requested.connect(self.toggle_hand_detection)
-        main_widget.toggle_pose_detection_requested.connect(self.toggle_pose_detection)
+        # main_widget.toggle_hand_detection_requested.connect(self.toggle_hand_detection)
+        # main_widget.toggle_pose_detection_requested.connect(self.toggle_pose_detection)
         main_widget.toggle_pose_landmarks_requested.connect(self.toggle_pose_landmarks)
         main_widget.toggle_gesture_recognition_requested.connect(self.toggle_gesture_recognition)
         main_widget.reset_detection_settings_requested.connect(self.reset_detection_settings)
