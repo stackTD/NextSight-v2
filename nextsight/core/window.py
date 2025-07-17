@@ -3,12 +3,14 @@ Main window with custom title bar for NextSight v2
 """
 
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-                             QLabel, QPushButton, QFrame, QApplication)
+                             QLabel, QPushButton, QFrame, QApplication, QMessageBox)
 from PyQt6.QtCore import Qt, QPoint, pyqtSignal
-from PyQt6.QtGui import QFont, QIcon, QPixmap, QPainter, QColor
+from PyQt6.QtGui import QFont, QIcon, QPixmap, QPainter, QColor, QKeyEvent
 from nextsight.ui.main_widget import MainWidget
 from nextsight.ui.status_bar import StatusBar
 from nextsight.utils.config import config
+from nextsight.utils.detection_config import detection_config, get_keyboard_help
+import logging
 
 
 class CustomTitleBar(QWidget):
@@ -121,7 +123,17 @@ class CustomTitleBar(QWidget):
 
 
 class MainWindow(QMainWindow):
-    """Main application window with custom title bar"""
+    """Main application window with custom title bar and keyboard controls"""
+    
+    # Signals for keyboard actions
+    toggle_hand_detection_requested = pyqtSignal()
+    toggle_pose_detection_requested = pyqtSignal()
+    toggle_pose_landmarks_requested = pyqtSignal()
+    toggle_gesture_recognition_requested = pyqtSignal()
+    reset_detection_settings_requested = pyqtSignal()
+    toggle_landmarks_requested = pyqtSignal()
+    toggle_connections_requested = pyqtSignal()
+    exit_application_requested = pyqtSignal()
     
     def __init__(self):
         super().__init__()
@@ -129,6 +141,10 @@ class MainWindow(QMainWindow):
         # Window state
         self.is_maximized = False
         self.normal_geometry = None
+        
+        # Keyboard controls
+        self.keyboard_enabled = True
+        self.logger = logging.getLogger(__name__)
         
         self.setup_window()
         self.setup_ui()
@@ -144,8 +160,82 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(config.ui.min_width, config.ui.min_height)
         self.resize(config.ui.window_width, config.ui.window_height)
         
+        # Enable focus for keyboard events
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        
         # Center window on screen
         self.center_on_screen()
+    
+    def keyPressEvent(self, event: QKeyEvent):
+        """Handle keyboard shortcuts for detection controls"""
+        if not self.keyboard_enabled:
+            super().keyPressEvent(event)
+            return
+        
+        key = event.key()
+        key_text = event.text().lower()
+        
+        # Map keyboard shortcuts to actions
+        try:
+            if key_text == 'h':
+                self.toggle_hand_detection_requested.emit()
+                self.logger.info("Keyboard: Hand detection toggle requested")
+                
+            elif key_text == 'b':
+                self.toggle_pose_detection_requested.emit()
+                self.logger.info("Keyboard: Pose detection toggle requested")
+                
+            elif key_text == 'p':
+                self.toggle_pose_landmarks_requested.emit()
+                self.logger.info("Keyboard: Pose landmarks toggle requested")
+                
+            elif key_text == 'g':
+                self.toggle_gesture_recognition_requested.emit()
+                self.logger.info("Keyboard: Gesture recognition toggle requested")
+                
+            elif key_text == 'l':
+                self.toggle_landmarks_requested.emit()
+                self.logger.info("Keyboard: Landmarks toggle requested")
+                
+            elif key_text == 'c':
+                self.toggle_connections_requested.emit()
+                self.logger.info("Keyboard: Connections toggle requested")
+                
+            elif key_text == 'r':
+                self.reset_detection_settings_requested.emit()
+                self.logger.info("Keyboard: Reset detection settings requested")
+                
+            elif key == Qt.Key.Key_Escape:
+                self.exit_application_requested.emit()
+                self.logger.info("Keyboard: Exit application requested")
+                
+            elif key == Qt.Key.Key_F1:
+                self.show_keyboard_help()
+                
+            else:
+                # Pass unhandled keys to parent
+                super().keyPressEvent(event)
+                
+        except Exception as e:
+            self.logger.error(f"Error handling keyboard event: {e}")
+            super().keyPressEvent(event)
+    
+    def show_keyboard_help(self):
+        """Show keyboard shortcuts help dialog"""
+        help_text = get_keyboard_help()
+        help_text += "\nF1 - Show this help dialog"
+        
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Keyboard Controls - NextSight v2")
+        msg_box.setText(help_text)
+        msg_box.setIcon(QMessageBox.Icon.Information)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg_box.exec()
+    
+    def set_keyboard_controls_enabled(self, enabled: bool):
+        """Enable or disable keyboard controls"""
+        self.keyboard_enabled = enabled
+        self.logger.info(f"Keyboard controls {'enabled' if enabled else 'disabled'}")
     
     def center_on_screen(self):
         """Center the window on screen"""
