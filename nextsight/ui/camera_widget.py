@@ -4,7 +4,7 @@ Enhanced with zone overlay and mouse interaction for Phase 3
 """
 
 from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSizePolicy
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPointF
 from PyQt6.QtGui import QPixmap, QImage, QPainter, QPen, QFont, QMouseEvent
 from typing import Optional, Dict, TYPE_CHECKING
 
@@ -38,6 +38,12 @@ class CameraWidget(QWidget):
         self.zone_manager: Optional['ZoneManager'] = None
         self.zone_overlay: Optional['ZoneOverlay'] = None
         self.zones_enabled = False
+        
+        # Zone creation variables
+        self.zone_creation_mode = False
+        self.creating_zone = False
+        self.zone_start_point = (0.0, 0.0)
+        self.zone_end_point = (0.0, 0.0)
         
         self.setup_ui()
         
@@ -271,10 +277,51 @@ class CameraWidget(QWidget):
         self.fps_display = 0.0
     
     def mousePressEvent(self, event):
-        """Handle mouse clicks"""
+        """Handle mouse press events for zone creation and selection"""
+        if not self.zone_creation_mode:
+            # Forward to zone manager for zone selection
+            if hasattr(self, 'zone_manager'):
+                # Convert QPoint to QPointF for PyQt6 compatibility
+                local_pos = QPointF(event.pos())
+                global_pos = QPointF(event.globalPos())
+                
+                camera_event = QMouseEvent(
+                    event.type(),
+                    local_pos,  # Use QPointF instead of QPoint
+                    global_pos,  # Use QPointF instead of QPoint
+                    event.button(),
+                    event.buttons(),
+                    event.modifiers()
+                )
+                
+                # Forward to zone manager
+                self.zone_manager.mousePressEvent(camera_event)
+            
+            super().mousePressEvent(event)
+            return
+        
+        # Zone creation logic
         if event.button() == Qt.MouseButton.LeftButton:
-            self.clicked.emit()
-        super().mousePressEvent(event)
+            # Convert to normalized coordinates
+            widget_size = self.size()
+            norm_x = event.pos().x() / widget_size.width()
+            norm_y = event.pos().y() / widget_size.height()
+            
+            if not self.creating_zone:
+                # Start creating zone
+                self.creating_zone = True
+                self.zone_start_point = (norm_x, norm_y)
+                self.zone_end_point = (norm_x, norm_y)
+                self.update()  # Trigger repaint
+            else:
+                # Finish creating zone
+                self.zone_end_point = (norm_x, norm_y)
+                self._finish_zone_creation()
+        
+        elif event.button() == Qt.MouseButton.RightButton:
+            # Cancel zone creation
+            if self.creating_zone:
+                self.cancel_zone_creation()
     
     def resizeEvent(self, event):
         """Handle widget resize"""
@@ -367,11 +414,11 @@ class CameraWidget(QWidget):
             camera_pos = self.camera_label.mapFromParent(event.pos())
             widget_size = (self.camera_label.width(), self.camera_label.height())
             
-            # Create new mouse event with camera label coordinates
+            # Create new mouse event with camera label coordinates - use QPointF
             camera_event = QMouseEvent(
                 event.type(),
-                camera_pos,
-                event.globalPosition(),
+                QPointF(camera_pos),  # Convert QPoint to QPointF
+                event.globalPosition(),  # This is already QPointF in PyQt6
                 event.button(),
                 event.buttons(),
                 event.modifiers()
@@ -404,11 +451,11 @@ class CameraWidget(QWidget):
             camera_pos = self.camera_label.mapFromParent(event.pos())
             widget_size = (self.camera_label.width(), self.camera_label.height())
             
-            # Create new mouse event with camera label coordinates
+            # Create new mouse event with camera label coordinates - use QPointF
             camera_event = QMouseEvent(
                 event.type(),
-                camera_pos,
-                event.globalPosition(),
+                QPointF(camera_pos),  # Convert QPoint to QPointF
+                event.globalPosition(),  # This is already QPointF in PyQt6
                 event.button(),
                 event.buttons(),
                 event.modifiers()
@@ -428,11 +475,11 @@ class CameraWidget(QWidget):
             camera_pos = self.camera_label.mapFromParent(event.pos())
             widget_size = (self.camera_label.width(), self.camera_label.height())
             
-            # Create new mouse event with camera label coordinates
+            # Create new mouse event with camera label coordinates - use QPointF
             camera_event = QMouseEvent(
                 event.type(),
-                camera_pos,
-                event.globalPosition(),
+                QPointF(camera_pos),  # Convert QPoint to QPointF
+                event.globalPosition(),  # This is already QPointF in PyQt6
                 event.button(),
                 event.buttons(),
                 event.modifiers()

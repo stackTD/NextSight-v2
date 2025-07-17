@@ -3,7 +3,7 @@ Interactive zone creation with mouse input for NextSight v2
 Click and drag zone creation with visual preview
 """
 
-from PyQt6.QtCore import QObject, pyqtSignal, QPoint
+from PyQt6.QtCore import QObject, pyqtSignal, QPoint, Qt
 from PyQt6.QtGui import QMouseEvent, QPainter, QPen, QBrush, QColor
 from typing import Optional, Tuple, Callable
 from nextsight.zones.zone_config import Zone, ZoneType
