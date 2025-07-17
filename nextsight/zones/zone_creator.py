@@ -74,7 +74,7 @@ class ZoneCreator(QObject):
         if not self.is_creating:
             return False
         
-        if event.button() == event.button().LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             # Convert widget coordinates to frame coordinates
             frame_point = self._widget_to_frame_coordinates(event.pos(), widget_size)
             if frame_point:
@@ -82,7 +82,7 @@ class ZoneCreator(QObject):
                 self.current_point = frame_point
                 return True
         
-        elif event.button() == event.button().RightButton:
+        elif event.button() == Qt.MouseButton.RightButton:
             # Cancel creation on right click
             self.cancel_zone_creation()
             return True
@@ -103,6 +103,9 @@ class ZoneCreator(QObject):
             preview_rect = self._get_preview_rectangle()
             if preview_rect:
                 self.zone_preview_updated.emit(preview_rect)
+            else:
+                # Clear preview if rectangle too small
+                self.zone_preview_updated.emit(None)
             
             return True
         
@@ -113,7 +116,7 @@ class ZoneCreator(QObject):
         if not self.is_creating or not self.start_point:
             return False
         
-        if event.button() == event.button().LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             # Complete zone creation
             frame_point = self._widget_to_frame_coordinates(event.pos(), widget_size)
             if frame_point:
@@ -146,7 +149,7 @@ class ZoneCreator(QObject):
         widget_ratio = widget_width / widget_height
         frame_ratio = self.frame_width / self.frame_height
         
-        # Calculate actual frame display area within widget
+        # Calculate actual frame display area within widget (letterboxing/pillarboxing)
         if widget_ratio > frame_ratio:
             # Widget is wider than frame - frame is centered horizontally
             display_height = widget_height
@@ -154,7 +157,7 @@ class ZoneCreator(QObject):
             offset_x = (widget_width - display_width) // 2
             offset_y = 0
         else:
-            # Widget is taller than frame - frame is centered vertically
+            # Widget is taller than frame - frame is centered vertically  
             display_width = widget_width
             display_height = int(display_width / frame_ratio)
             offset_x = 0
@@ -165,9 +168,14 @@ class ZoneCreator(QObject):
         rel_y = widget_pos.y() - offset_y
         
         if 0 <= rel_x <= display_width and 0 <= rel_y <= display_height:
-            # Convert to frame coordinates
+            # Convert to frame coordinates (pixel coordinates)
             frame_x = int((rel_x / display_width) * self.frame_width)
             frame_y = int((rel_y / display_height) * self.frame_height)
+            
+            # Clamp to frame bounds
+            frame_x = max(0, min(frame_x, self.frame_width - 1))
+            frame_y = max(0, min(frame_y, self.frame_height - 1))
+            
             return QPoint(frame_x, frame_y)
         
         return None
@@ -194,10 +202,10 @@ class ZoneCreator(QObject):
         color = self.preview_colors[zone_type]
         
         return {
-            'x': left,
-            'y': top,
-            'width': width,
-            'height': height,
+            'x': left / self.frame_width,      # Normalize to 0-1
+            'y': top / self.frame_height,      # Normalize to 0-1
+            'width': width / self.frame_width,  # Normalize to 0-1
+            'height': height / self.frame_height, # Normalize to 0-1
             'color': color,
             'alpha': self.preview_alpha,
             'border_width': self.preview_border_width,

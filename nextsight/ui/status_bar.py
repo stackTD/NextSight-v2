@@ -23,6 +23,7 @@ class StatusBar(QStatusBar):
         
         # Zone status tracking
         self.zones_enabled = False
+        self.zone_creation_mode = None
         self.total_zones = 0
         self.active_zones = 0
         self.zones_with_hands = 0
@@ -70,10 +71,16 @@ class StatusBar(QStatusBar):
         self.addPermanentWidget(self.fps_display)
         
         # Zone status
-        self.zone_status = QLabel("Zones: 0")
-        self.zone_status.setMinimumWidth(80)
+        self.zone_status = QLabel("Zone System: DISABLED")
+        self.zone_status.setMinimumWidth(160)
         self.zone_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.addPermanentWidget(self.zone_status)
+        
+        # Zone creation mode status
+        self.zone_mode_status = QLabel("Ready")
+        self.zone_mode_status.setMinimumWidth(120)
+        self.zone_mode_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.addPermanentWidget(self.zone_mode_status)
         
         # Pick events counter
         self.pick_counter = QLabel("Picks: 0")
@@ -137,17 +144,27 @@ class StatusBar(QStatusBar):
         
         # Zone status with color coding
         if self.zones_enabled:
-            zone_text = f"Zones: {self.active_zones}/{self.total_zones}"
+            zone_text = f"Zone System: ENABLED ({self.active_zones}/{self.total_zones})"
             if self.zones_with_hands > 0:
-                zone_text += f" ({self.zones_with_hands} active)"
+                zone_text += f" | Active: {self.zones_with_hands}"
                 self.zone_status.setStyleSheet("color: #00ff00; font-weight: bold;")
             else:
-                self.zone_status.setStyleSheet("color: #ffffff; font-weight: bold;")
+                self.zone_status.setStyleSheet("color: #00cc00; font-weight: bold;")
         else:
-            zone_text = "Zones: Off"
+            zone_text = "Zone System: DISABLED"
             self.zone_status.setStyleSheet("color: #666666; font-weight: bold;")
         
         self.zone_status.setText(zone_text)
+        
+        # Zone creation mode status
+        if self.zone_creation_mode:
+            mode_text = f"Creating {self.zone_creation_mode.title()} Zone"
+            self.zone_mode_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
+        else:
+            mode_text = "Ready"
+            self.zone_mode_status.setStyleSheet("color: #ffffff; font-weight: normal;")
+        
+        self.zone_mode_status.setText(mode_text)
         
         # Pick counter with recent activity indication
         pick_text = f"Picks: {self.pick_events_count}"
@@ -269,17 +286,37 @@ class StatusBar(QStatusBar):
         self.drop_events_count = session_stats.get('total_drops', 0)
         
         self.update_indicators()
+        
+    def set_zone_creation_mode(self, mode: str = None):
+        """Set zone creation mode status"""
+        self.zone_creation_mode = mode
+        self.update_indicators()
+        
+    def set_zone_system_enabled(self, enabled: bool):
+        """Set zone system enabled status"""
+        self.zones_enabled = enabled
+        if enabled:
+            self.showMessage("Zone system enabled - Press Z to toggle, 1/2 to create zones", 3000)
+        else:
+            self.showMessage("Zone system disabled", 2000)
+        self.update_indicators()
     
     def on_pick_event(self, hand_id: str, zone_id: str):
         """Handle pick event"""
         self.last_pick_time = time.time()
-        self.showMessage(f"Pick detected: {hand_id} in {zone_id}", 2000)
+        self.showMessage(f"✓ PICK: {hand_id} in {zone_id}", 2000)
+        # Flash pick counter briefly
+        self.pick_counter.setStyleSheet("color: #00ff00; font-weight: bold; background-color: rgba(0, 255, 0, 50);")
+        QTimer.singleShot(1000, lambda: self.pick_counter.setStyleSheet("color: #00ff00; font-weight: bold;"))
         self.update_indicators()
     
     def on_drop_event(self, hand_id: str, zone_id: str):
         """Handle drop event"""
         self.last_drop_time = time.time()
-        self.showMessage(f"Drop detected: {hand_id} in {zone_id}", 2000)
+        self.showMessage(f"✓ DROP: {hand_id} in {zone_id}", 2000)
+        # Flash drop counter briefly
+        self.drop_counter.setStyleSheet("color: #0080ff; font-weight: bold; background-color: rgba(0, 128, 255, 50);")
+        QTimer.singleShot(1000, lambda: self.drop_counter.setStyleSheet("color: #0080ff; font-weight: bold;"))
         self.update_indicators()
     
     def show_zone_message(self, message: str, timeout: int = 3000):

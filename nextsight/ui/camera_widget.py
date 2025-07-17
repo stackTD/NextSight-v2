@@ -308,6 +308,9 @@ class CameraWidget(QWidget):
             # Setup mouse interaction for zone creation
             zone_creator = zone_manager.get_zone_creator()
             zone_creator.zone_preview_updated.connect(self.on_zone_preview_updated)
+            
+            # Set frame size for coordinate calculations  
+            zone_manager.set_frame_size(640, 480)  # Default size, will be updated by camera thread
         
         self.zones_enabled = True
     
@@ -327,6 +330,8 @@ class CameraWidget(QWidget):
         if self.zone_manager and self.zone_overlay and self.zones_enabled:
             zones = self.zone_manager.get_zones(active_only=True)
             self.zone_overlay.set_zones(zones)
+            # Force update to ensure visual refresh
+            self.zone_overlay.update()
     
     def on_zone_preview_updated(self, preview_data):
         """Handle zone creation preview updates"""
@@ -354,12 +359,25 @@ class CameraWidget(QWidget):
             self.zone_overlay.animate_step()
     
     def mousePressEvent(self, event: QMouseEvent):
-        """Handle mouse press events for zone creation"""
+        """Handle mouse press events for zone creation and context menu"""
         if self.zone_manager and self.zones_enabled:
             zone_creator = self.zone_manager.get_zone_creator()
+            
+            # Get camera label position relative to the widget
+            camera_pos = self.camera_label.mapFromParent(event.pos())
             widget_size = (self.camera_label.width(), self.camera_label.height())
             
-            if zone_creator.handle_mouse_press(event, widget_size):
+            # Create new mouse event with camera label coordinates
+            camera_event = QMouseEvent(
+                event.type(),
+                camera_pos,
+                event.globalPosition(),
+                event.button(),
+                event.buttons(),
+                event.modifiers()
+            )
+            
+            if zone_creator.handle_mouse_press(camera_event, widget_size):
                 return  # Event handled by zone creator
             
             # Handle right-click context menu
@@ -367,8 +385,8 @@ class CameraWidget(QWidget):
                 # Check if clicking on a zone
                 clicked_zone = None
                 if self.zone_overlay:
-                    # Convert global position to overlay position
-                    overlay_pos = self.zone_overlay.mapFromGlobal(event.globalPosition().toPoint())
+                    # Convert to overlay position
+                    overlay_pos = self.zone_overlay.mapFromParent(camera_pos)
                     clicked_zone = self.zone_overlay._get_zone_at_position(overlay_pos)
                 
                 self.zone_context_menu_requested.emit(event.globalPosition().toPoint(), clicked_zone)
@@ -381,9 +399,22 @@ class CameraWidget(QWidget):
         """Handle mouse move events for zone creation"""
         if self.zone_manager and self.zones_enabled:
             zone_creator = self.zone_manager.get_zone_creator()
+            
+            # Get camera label position relative to the widget
+            camera_pos = self.camera_label.mapFromParent(event.pos())
             widget_size = (self.camera_label.width(), self.camera_label.height())
             
-            if zone_creator.handle_mouse_move(event, widget_size):
+            # Create new mouse event with camera label coordinates
+            camera_event = QMouseEvent(
+                event.type(),
+                camera_pos,
+                event.globalPosition(),
+                event.button(),
+                event.buttons(),
+                event.modifiers()
+            )
+            
+            if zone_creator.handle_mouse_move(camera_event, widget_size):
                 return  # Event handled by zone creator
         
         super().mouseMoveEvent(event)
@@ -392,9 +423,22 @@ class CameraWidget(QWidget):
         """Handle mouse release events for zone creation"""
         if self.zone_manager and self.zones_enabled:
             zone_creator = self.zone_manager.get_zone_creator()
+            
+            # Get camera label position relative to the widget
+            camera_pos = self.camera_label.mapFromParent(event.pos())
             widget_size = (self.camera_label.width(), self.camera_label.height())
             
-            if zone_creator.handle_mouse_release(event, widget_size):
+            # Create new mouse event with camera label coordinates
+            camera_event = QMouseEvent(
+                event.type(),
+                camera_pos,
+                event.globalPosition(),
+                event.button(),
+                event.buttons(),
+                event.modifiers()
+            )
+            
+            if zone_creator.handle_mouse_release(camera_event, widget_size):
                 return  # Event handled by zone creator
         
         super().mouseReleaseEvent(event)

@@ -20,9 +20,13 @@ class ZoneOverlay(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         
-        # Make widget transparent for overlay
+        # Make widget transparent for overlay but receive mouse events
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
         self.setStyleSheet("background: transparent;")
+        
+        # Enable mouse tracking for hover effects  
+        self.setMouseTracking(True)
         
         # Zone data
         self.zones: List[Zone] = []
@@ -56,12 +60,12 @@ class ZoneOverlay(QWidget):
     
     def set_zones(self, zones: List[Zone]):
         """Update zones to display"""
-        self.zones = zones.copy()
+        self.zones = zones.copy() if zones else []
         self.update()
     
     def set_zone_intersections(self, intersections: Dict[str, List[Dict]]):
         """Update zone intersection data"""
-        self.zone_intersections = intersections.copy()
+        self.zone_intersections = intersections.copy() if intersections else {}
         self.update()
     
     def set_preview_zone(self, preview_data: Optional[Dict]):
@@ -133,6 +137,13 @@ class ZoneOverlay(QWidget):
                 base_color.setAlpha(blink_alpha)
             else:
                 base_color.setAlpha(int(zone.alpha * 255 * 1.5))
+                
+            # Add glow effect for active zones
+            glow_color = base_color.lighter(200)
+            glow_color.setAlpha(100)
+            painter.setPen(QPen(glow_color, zone.border_width + 4))
+            painter.setBrush(QBrush())  # No fill for glow
+            painter.drawRect(widget_rect.adjusted(-2, -2, 2, 2))
         else:
             base_color.setAlpha(int(zone.alpha * 255))
         
@@ -251,10 +262,12 @@ class ZoneOverlay(QWidget):
     
     def _draw_preview_zone(self, painter: QPainter, preview_data: Dict):
         """Draw zone creation preview"""
-        # Convert frame coordinates to widget coordinates
+        # Convert normalized coordinates to widget coordinates
         widget_rect = self._frame_to_widget_rect(
-            preview_data['x'], preview_data['y'],
-            preview_data['width'], preview_data['height']
+            preview_data['x'] * self.frame_width, 
+            preview_data['y'] * self.frame_height,
+            preview_data['width'] * self.frame_width, 
+            preview_data['height'] * self.frame_height
         )
         
         if not widget_rect:
@@ -395,7 +408,7 @@ class ZoneOverlay(QWidget):
         super().mouseMoveEvent(event)
     
     def _get_zone_at_position(self, pos) -> Optional[Zone]:
-        """Get zone at mouse position"""
+        """Get zone at mouse position (public method for camera widget)"""
         for zone in self.zones:
             if not zone.active:
                 continue
