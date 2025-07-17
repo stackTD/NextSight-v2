@@ -20,6 +20,7 @@ class CameraThread(QThread):
     status_update = pyqtSignal(str)  # Status messages
     error_occurred = pyqtSignal(str)  # Error messages
     fps_update = pyqtSignal(float)  # FPS updates
+    zone_intersections_update = pyqtSignal(dict)  # Zone intersection data
     
     def __init__(self, camera_index: int = None):
         super().__init__()
@@ -45,6 +46,10 @@ class CameraThread(QThread):
         # Frame processing
         self.frame_skip = 0  # Skip frames if processing is slow
         self.max_frame_skip = 3
+        
+        # Zone management integration
+        self.zone_manager = None
+        self.zones_enabled = False
         
     def initialize_camera(self) -> bool:
         """Initialize the camera with optimal settings"""
@@ -116,6 +121,16 @@ class CameraThread(QThread):
                 
                 # Process with multi-modal detection
                 processed_frame, detection_info = self.detector.process_frame(frame)
+                
+                # Process zone intersections if enabled
+                zone_intersections = {}
+                if self.zone_manager and self.zones_enabled:
+                    try:
+                        zone_results = self.zone_manager.process_frame_detections(detection_info)
+                        zone_intersections = zone_results.get('intersections', {})
+                        self.zone_intersections_update.emit(zone_intersections)
+                    except Exception as e:
+                        self.error_occurred.emit(f"Zone processing error: {str(e)}")
                 
                 # Convert to QImage for display
                 qt_image = self.cv_to_qt_image(processed_frame)
@@ -272,3 +287,16 @@ class CameraThread(QThread):
         
         self.detector.cleanup()
         self.status_update.emit("Camera resources cleaned up")
+    
+    def set_zone_manager(self, zone_manager):
+        """Set zone manager for zone detection"""
+        self.zone_manager = zone_manager
+        if zone_manager:
+            self.zones_enabled = True
+            self.status_update.emit("Zone detection enabled")
+    
+    def enable_zones(self, enabled: bool = True):
+        """Enable or disable zone detection"""
+        self.zones_enabled = enabled and self.zone_manager is not None
+        status = "enabled" if self.zones_enabled else "disabled"
+        self.status_update.emit(f"Zone detection {status}")
