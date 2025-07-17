@@ -187,7 +187,7 @@ class ZoneIntersectionCalculator:
         self.hand_processor = HandLandmarkProcessor()
     
     def point_in_zone_intersection(self, landmarks, zone_rect: Rectangle, 
-                                 confidence_threshold: float = 0.7) -> Dict:
+                                 confidence_threshold: float = 0.7) -> dict:
         """Check intersection using key points (fast method)"""
         result = {
             'intersecting': False,
@@ -227,7 +227,7 @@ class ZoneIntersectionCalculator:
         return result
     
     def bounding_box_intersection(self, landmarks, zone_rect: Rectangle,
-                                confidence_threshold: float = 0.5) -> Dict:
+                                confidence_threshold: float = 0.5) -> dict:
         """Check intersection using bounding box overlap (medium accuracy)"""
         result = {
             'intersecting': False,
@@ -261,7 +261,7 @@ class ZoneIntersectionCalculator:
         return result
     
     def hybrid_intersection(self, landmarks, zone_rect: Rectangle,
-                          confidence_threshold: float = 0.6) -> Dict:
+                          confidence_threshold: float = 0.6) -> dict:
         """Hybrid method combining point and bounding box detection"""
         result = {
             'intersecting': False,

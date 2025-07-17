@@ -3,12 +3,12 @@ Context menu for zone management in NextSight v2
 Right-click menu for zone operations and properties
 """
 
-from PyQt6.QtWidgets import (QMenu, QAction, QDialog, QVBoxLayout, QHBoxLayout,
+from PyQt6.QtWidgets import (QMenu, QDialog, QVBoxLayout, QHBoxLayout,
                            QLabel, QLineEdit, QComboBox, QSlider, QSpinBox,
                            QPushButton, QColorDialog, QGroupBox, QFormLayout,
                            QCheckBox, QDialogButtonBox)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QPixmap, QPainter
+from PyQt6.QtGui import QColor, QPixmap, QPainter, QAction
 from typing import Optional, Callable
 from nextsight.zones.zone_config import Zone, ZoneType
 
