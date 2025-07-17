@@ -41,7 +41,7 @@ class ZoneManager(QObject):
         
         # State management
         self.is_enabled = True
-        self.detection_active = False
+        self.detection_active = True  # Enable detection by default
         self.frame_width = 640
         self.frame_height = 480
         
