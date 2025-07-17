@@ -1,5 +1,6 @@
 """
 Main application class for NextSight v2
+Enhanced with zone management system for Phase 3
 """
 
 import sys
@@ -11,6 +12,10 @@ from nextsight.core.window import MainWindow
 from nextsight.core.camera_thread import CameraThread
 from nextsight.ui.styles import apply_dark_theme
 from nextsight.utils.config import config
+
+# Zone management imports
+from nextsight.zones.zone_manager import ZoneManager
+from nextsight.ui.context_menu import show_zone_context_menu, show_zone_properties_dialog
 
 
 class NextSightApplication:
@@ -32,6 +37,7 @@ class NextSightApplication:
         # Initialize components
         self.main_window = None
         self.camera_thread = None
+        self.zone_manager = None
         
         # Setup application
         self.setup_application()
@@ -57,6 +63,9 @@ class NextSightApplication:
             # Setup camera thread
             self.camera_thread = CameraThread()
             
+            # Setup zone management system
+            self.zone_manager = ZoneManager()
+            
             # Connect signals
             self.setup_connections()
             
@@ -69,7 +78,7 @@ class NextSightApplication:
     
     def setup_connections(self):
         """Setup signal connections between components"""
-        if not self.main_window or not self.camera_thread:
+        if not self.main_window or not self.camera_thread or not self.zone_manager:
             return
         
         # Get references to UI components
@@ -85,6 +94,17 @@ class NextSightApplication:
         self.camera_thread.status_update.connect(status_bar.show_status_message)
         self.camera_thread.error_occurred.connect(status_bar.show_error_message)
         self.camera_thread.error_occurred.connect(self.on_camera_error)
+        
+        # Zone system connections
+        self.camera_thread.zone_intersections_update.connect(camera_widget.update_zone_intersections)
+        self.camera_thread.set_zone_manager(self.zone_manager)
+        camera_widget.set_zone_manager(self.zone_manager)
+        camera_widget.zone_context_menu_requested.connect(self.show_zone_context_menu)
+        
+        # Zone manager to status bar connections
+        self.zone_manager.zone_status_changed.connect(status_bar.update_zone_status)
+        self.zone_manager.pick_event_detected.connect(status_bar.on_pick_event)
+        self.zone_manager.drop_event_detected.connect(status_bar.on_drop_event)
         
         # UI control connections (backward compatibility)
         main_widget.toggle_detection_requested.connect(self.toggle_hand_detection)
@@ -109,6 +129,12 @@ class NextSightApplication:
         self.main_window.toggle_landmarks_requested.connect(self.toggle_landmarks)
         self.main_window.toggle_connections_requested.connect(self.toggle_connections)
         self.main_window.exit_application_requested.connect(self.exit_application)
+        
+        # Zone keyboard control connections
+        self.main_window.create_pick_zone_requested.connect(self.create_pick_zone)
+        self.main_window.create_drop_zone_requested.connect(self.create_drop_zone)
+        self.main_window.toggle_zones_requested.connect(self.toggle_zones)
+        self.main_window.clear_zones_requested.connect(self.clear_zones)
         
         # Window close connection
         self.main_window.closeEvent = self.on_close_event
@@ -265,6 +291,139 @@ class NextSightApplication:
             
         except Exception as e:
             self.logger.error(f"Cleanup error: {e}")
+    
+    def create_pick_zone(self):
+        """Start creating a pick zone"""
+        if self.zone_manager:
+            success = self.zone_manager.start_zone_creation('pick')
+            if success:
+                self.main_window.get_status_bar().show_zone_message("Click and drag to create pick zone", 5000)
+            self.logger.info("Pick zone creation started" if success else "Failed to start pick zone creation")
+    
+    def create_drop_zone(self):
+        """Start creating a drop zone"""
+        if self.zone_manager:
+            success = self.zone_manager.start_zone_creation('drop')
+            if success:
+                self.main_window.get_status_bar().show_zone_message("Click and drag to create drop zone", 5000)
+            self.logger.info("Drop zone creation started" if success else "Failed to start drop zone creation")
+    
+    def toggle_zones(self):
+        """Toggle zone system on/off"""
+        if self.zone_manager and self.camera_thread:
+            current_state = self.zone_manager.is_enabled
+            new_state = not current_state
+            
+            self.zone_manager.enable_detection(new_state)
+            self.camera_thread.enable_zones(new_state)
+            
+            main_widget = self.main_window.get_main_widget()
+            camera_widget = main_widget.get_camera_widget()
+            camera_widget.enable_zones(new_state)
+            
+            status = "enabled" if new_state else "disabled"
+            self.main_window.get_status_bar().show_zone_message(f"Zone system {status}")
+            self.logger.info(f"Zone system {status}")
+    
+    def clear_zones(self):
+        """Clear all zones after confirmation"""
+        if self.zone_manager:
+            reply = QMessageBox.question(
+                self.main_window,
+                "Clear All Zones",
+                "Are you sure you want to clear all zones?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                self.zone_manager.clear_all_zones()
+                self.main_window.get_status_bar().show_zone_message("All zones cleared")
+                self.logger.info("All zones cleared")
+    
+    def show_zone_context_menu(self, position, zone):
+        """Show context menu for zone operations"""
+        try:
+            menu = show_zone_context_menu(position, zone, self.main_window)
+            
+            # Connect menu signals
+            menu.create_pick_zone_requested.connect(self.create_pick_zone)
+            menu.create_drop_zone_requested.connect(self.create_drop_zone)
+            menu.clear_all_zones_requested.connect(self.clear_zones)
+            menu.save_zones_requested.connect(self.save_zones)
+            menu.load_zones_requested.connect(self.load_zones)
+            
+            if zone:
+                menu.edit_zone_requested.connect(self.edit_zone)
+                menu.delete_zone_requested.connect(self.delete_zone)
+                menu.toggle_zone_active_requested.connect(self.toggle_zone_active)
+            
+        except Exception as e:
+            self.logger.error(f"Error showing zone context menu: {e}")
+    
+    def edit_zone(self, zone_id: str):
+        """Edit zone properties"""
+        if self.zone_manager:
+            zone = self.zone_manager.get_zone(zone_id)
+            if zone:
+                try:
+                    properties = show_zone_properties_dialog(zone, self.main_window)
+                    if properties:
+                        # Update zone with new properties
+                        for key, value in properties.items():
+                            setattr(zone, key, value)
+                        
+                        self.zone_manager.update_zone(zone)
+                        self.main_window.get_status_bar().show_zone_message(f"Zone {zone.name} updated")
+                        self.logger.info(f"Zone {zone_id} updated")
+                
+                except Exception as e:
+                    self.logger.error(f"Error editing zone {zone_id}: {e}")
+    
+    def delete_zone(self, zone_id: str):
+        """Delete zone after confirmation"""
+        if self.zone_manager:
+            zone = self.zone_manager.get_zone(zone_id)
+            if zone:
+                reply = QMessageBox.question(
+                    self.main_window,
+                    "Delete Zone",
+                    f"Delete zone '{zone.name}'?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    self.zone_manager.delete_zone(zone_id)
+                    self.main_window.get_status_bar().show_zone_message(f"Zone {zone.name} deleted")
+                    self.logger.info(f"Zone {zone_id} deleted")
+    
+    def toggle_zone_active(self, zone_id: str):
+        """Toggle zone active state"""
+        if self.zone_manager:
+            zone = self.zone_manager.get_zone(zone_id)
+            if zone:
+                zone.active = not zone.active
+                self.zone_manager.update_zone(zone)
+                status = "activated" if zone.active else "deactivated"
+                self.main_window.get_status_bar().show_zone_message(f"Zone {zone.name} {status}")
+                self.logger.info(f"Zone {zone_id} {status}")
+    
+    def save_zones(self):
+        """Save zone configuration"""
+        if self.zone_manager:
+            success = self.zone_manager.save_configuration()
+            message = "Zones saved successfully" if success else "Failed to save zones"
+            self.main_window.get_status_bar().show_zone_message(message)
+            self.logger.info(message)
+    
+    def load_zones(self):
+        """Load zone configuration"""
+        if self.zone_manager:
+            success = self.zone_manager.load_configuration()
+            message = "Zones loaded successfully" if success else "Failed to load zones"
+            self.main_window.get_status_bar().show_zone_message(message)
+            self.logger.info(message)
     
     def show_error_dialog(self, title: str, message: str):
         """Show error dialog to user"""

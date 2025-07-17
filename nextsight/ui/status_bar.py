@@ -1,5 +1,6 @@
 """
 Status bar component for NextSight v2
+Enhanced with zone status and pick/drop event tracking for Phase 3
 """
 
 from PyQt6.QtWidgets import QStatusBar, QLabel, QProgressBar, QWidget, QHBoxLayout
@@ -19,6 +20,16 @@ class StatusBar(QStatusBar):
         self.is_detection_active = False
         self.current_fps = 0.0
         self.hands_detected = 0
+        
+        # Zone status tracking
+        self.zones_enabled = False
+        self.total_zones = 0
+        self.active_zones = 0
+        self.zones_with_hands = 0
+        self.pick_events_count = 0
+        self.drop_events_count = 0
+        self.last_pick_time = 0
+        self.last_drop_time = 0
         
         self.setup_ui()
         
@@ -57,6 +68,24 @@ class StatusBar(QStatusBar):
         self.fps_display.setMinimumWidth(80)
         self.fps_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.addPermanentWidget(self.fps_display)
+        
+        # Zone status
+        self.zone_status = QLabel("Zones: 0")
+        self.zone_status.setMinimumWidth(80)
+        self.zone_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.addPermanentWidget(self.zone_status)
+        
+        # Pick events counter
+        self.pick_counter = QLabel("Picks: 0")
+        self.pick_counter.setMinimumWidth(80)
+        self.pick_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.addPermanentWidget(self.pick_counter)
+        
+        # Drop events counter  
+        self.drop_counter = QLabel("Drops: 0")
+        self.drop_counter.setMinimumWidth(80)
+        self.drop_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.addPermanentWidget(self.drop_counter)
         
         # Performance indicator
         self.performance_indicator = QLabel()
@@ -106,6 +135,38 @@ class StatusBar(QStatusBar):
         
         self.fps_display.setStyleSheet(f"color: {color}; font-weight: bold;")
         
+        # Zone status with color coding
+        if self.zones_enabled:
+            zone_text = f"Zones: {self.active_zones}/{self.total_zones}"
+            if self.zones_with_hands > 0:
+                zone_text += f" ({self.zones_with_hands} active)"
+                self.zone_status.setStyleSheet("color: #00ff00; font-weight: bold;")
+            else:
+                self.zone_status.setStyleSheet("color: #ffffff; font-weight: bold;")
+        else:
+            zone_text = "Zones: Off"
+            self.zone_status.setStyleSheet("color: #666666; font-weight: bold;")
+        
+        self.zone_status.setText(zone_text)
+        
+        # Pick counter with recent activity indication
+        pick_text = f"Picks: {self.pick_events_count}"
+        if time.time() - self.last_pick_time < 3.0:  # Recent pick event
+            self.pick_counter.setStyleSheet("color: #00ff00; font-weight: bold;")
+            pick_text += " ✓"
+        else:
+            self.pick_counter.setStyleSheet("color: #ffffff; font-weight: bold;")
+        self.pick_counter.setText(pick_text)
+        
+        # Drop counter with recent activity indication
+        drop_text = f"Drops: {self.drop_events_count}"
+        if time.time() - self.last_drop_time < 3.0:  # Recent drop event
+            self.drop_counter.setStyleSheet("color: #0080ff; font-weight: bold;")
+            drop_text += " ✓"
+        else:
+            self.drop_counter.setStyleSheet("color: #ffffff; font-weight: bold;")
+        self.drop_counter.setText(drop_text)
+        
         # Performance indicator (traffic light style)
         self.update_performance_indicator()
     
@@ -120,7 +181,10 @@ class StatusBar(QStatusBar):
         
         # Determine color based on overall system performance
         if self.is_camera_connected and self.current_fps >= 25:
-            color = QColor("#00ff00")  # Green - excellent
+            if self.zones_enabled and self.active_zones > 0:
+                color = QColor("#00ff00")  # Green - excellent with zones
+            else:
+                color = QColor("#00cc00")  # Slightly dimmer green without zones
         elif self.is_camera_connected and self.current_fps >= 15:
             color = QColor("#ffaa00")  # Orange - good
         elif self.is_camera_connected:
@@ -188,3 +252,36 @@ class StatusBar(QStatusBar):
         """Set status bar to ready state"""
         self.status_label.setText("Ready")
         self.reset_status_style()
+    
+    def update_zone_status(self, zone_data: dict):
+        """Update zone-related status information"""
+        self.zones_enabled = zone_data.get('is_enabled', False)
+        
+        if 'zones' in zone_data:
+            zones_info = zone_data['zones']
+            self.total_zones = zones_info.get('total_zones', 0)
+            self.active_zones = zones_info.get('active_zones', 0)
+            self.zones_with_hands = zones_info.get('zones_with_hands', 0)
+        
+        # Update event counters
+        session_stats = zone_data.get('session_stats', {})
+        self.pick_events_count = session_stats.get('total_picks', 0)
+        self.drop_events_count = session_stats.get('total_drops', 0)
+        
+        self.update_indicators()
+    
+    def on_pick_event(self, hand_id: str, zone_id: str):
+        """Handle pick event"""
+        self.last_pick_time = time.time()
+        self.showMessage(f"Pick detected: {hand_id} in {zone_id}", 2000)
+        self.update_indicators()
+    
+    def on_drop_event(self, hand_id: str, zone_id: str):
+        """Handle drop event"""
+        self.last_drop_time = time.time()
+        self.showMessage(f"Drop detected: {hand_id} in {zone_id}", 2000)
+        self.update_indicators()
+    
+    def show_zone_message(self, message: str, timeout: int = 3000):
+        """Show zone-related status message"""
+        self.show_status_message(f"Zone: {message}", timeout)

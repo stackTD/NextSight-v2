@@ -1,18 +1,24 @@
 """
 Camera display widget for NextSight v2
+Enhanced with zone overlay and mouse interaction for Phase 3
 """
 
 from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSizePolicy
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QPixmap, QImage, QPainter, QPen, QFont
-from typing import Optional, Dict
+from PyQt6.QtGui import QPixmap, QImage, QPainter, QPen, QFont, QMouseEvent
+from typing import Optional, Dict, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from nextsight.zones.zone_manager import ZoneManager
+    from nextsight.ui.zone_overlay import ZoneOverlay
 
 
 class CameraWidget(QWidget):
-    """Professional camera display widget with overlay support"""
+    """Professional camera display widget with zone overlay support"""
     
     # Signals
     clicked = pyqtSignal()
+    zone_context_menu_requested = pyqtSignal(object, object)  # position, zone
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -27,6 +33,11 @@ class CameraWidget(QWidget):
         # Performance tracking
         self.fps_display = 0.0
         self.frame_count = 0
+        
+        # Zone system integration
+        self.zone_manager: Optional['ZoneManager'] = None
+        self.zone_overlay: Optional['ZoneOverlay'] = None
+        self.zones_enabled = False
         
         self.setup_ui()
         
@@ -83,6 +94,11 @@ class CameraWidget(QWidget):
         self.info_timer = QTimer()
         self.info_timer.timeout.connect(self.update_info_display)
         self.info_timer.start(500)  # Update every 500ms
+        
+        # Zone overlay animation timer
+        self.zone_animation_timer = QTimer()
+        self.zone_animation_timer.timeout.connect(self.animate_zones)
+        self.zone_animation_timer.start(50)  # 20 FPS for smooth animation
     
     def update_frame(self, qt_image: QImage, detection_info: Dict):
         """Update the camera display with new frame"""
@@ -104,6 +120,11 @@ class CameraWidget(QWidget):
         pixmap = QPixmap.fromImage(scaled_image)
         self.camera_label.setPixmap(pixmap)
         self.camera_label.setText("")  # Clear placeholder text
+        
+        # Update zone overlay
+        if self.zone_overlay and self.zones_enabled:
+            self.zone_overlay.set_frame_size(qt_image.width(), qt_image.height())
+            self.zone_overlay.update()
     
     def scale_image_to_fit(self, image: QImage) -> QImage:
         """Scale image to fit the widget while maintaining aspect ratio"""
@@ -261,3 +282,119 @@ class CameraWidget(QWidget):
         # Update display if we have an image
         if self.current_image:
             self.update_frame(self.current_image, self.detection_info)
+        
+        # Resize zone overlay to match camera label
+        if self.zone_overlay:
+            self.zone_overlay.setGeometry(self.camera_label.geometry())
+    
+    def set_zone_manager(self, zone_manager: 'ZoneManager'):
+        """Set zone manager for zone functionality"""
+        self.zone_manager = zone_manager
+        
+        # Create zone overlay
+        if not self.zone_overlay:
+            from nextsight.ui.zone_overlay import ZoneOverlay
+            self.zone_overlay = ZoneOverlay(self)
+            self.zone_overlay.setGeometry(self.camera_label.geometry())
+            self.zone_overlay.zone_clicked.connect(self.on_zone_clicked)
+            self.zone_overlay.zone_hovered.connect(self.on_zone_hovered)
+        
+        # Connect zone manager signals
+        if zone_manager:
+            zone_manager.zone_created.connect(self.on_zones_updated)
+            zone_manager.zone_deleted.connect(self.on_zones_updated)
+            zone_manager.zone_updated.connect(self.on_zones_updated)
+            
+            # Setup mouse interaction for zone creation
+            zone_creator = zone_manager.get_zone_creator()
+            zone_creator.zone_preview_updated.connect(self.on_zone_preview_updated)
+        
+        self.zones_enabled = True
+    
+    def enable_zones(self, enabled: bool = True):
+        """Enable or disable zone display"""
+        self.zones_enabled = enabled
+        if self.zone_overlay:
+            self.zone_overlay.setVisible(enabled)
+    
+    def update_zone_intersections(self, intersections: Dict):
+        """Update zone intersection data"""
+        if self.zone_overlay and self.zones_enabled:
+            self.zone_overlay.set_zone_intersections(intersections)
+    
+    def on_zones_updated(self, *args):
+        """Handle zone updates"""
+        if self.zone_manager and self.zone_overlay and self.zones_enabled:
+            zones = self.zone_manager.get_zones(active_only=True)
+            self.zone_overlay.set_zones(zones)
+    
+    def on_zone_preview_updated(self, preview_data):
+        """Handle zone creation preview updates"""
+        if self.zone_overlay and self.zones_enabled:
+            self.zone_overlay.set_preview_zone(preview_data)
+    
+    def on_zone_clicked(self, zone_id: str):
+        """Handle zone click events"""
+        if self.zone_manager:
+            zone = self.zone_manager.get_zone(zone_id)
+            if zone:
+                print(f"Zone clicked: {zone.name} ({zone_id})")
+    
+    def on_zone_hovered(self, zone_id: str):
+        """Handle zone hover events"""
+        if self.zone_manager:
+            zone = self.zone_manager.get_zone(zone_id)
+            if zone:
+                # Could show zone info in status bar
+                pass
+    
+    def animate_zones(self):
+        """Animate zone overlay effects"""
+        if self.zone_overlay and self.zones_enabled:
+            self.zone_overlay.animate_step()
+    
+    def mousePressEvent(self, event: QMouseEvent):
+        """Handle mouse press events for zone creation"""
+        if self.zone_manager and self.zones_enabled:
+            zone_creator = self.zone_manager.get_zone_creator()
+            widget_size = (self.camera_label.width(), self.camera_label.height())
+            
+            if zone_creator.handle_mouse_press(event, widget_size):
+                return  # Event handled by zone creator
+            
+            # Handle right-click context menu
+            if event.button() == Qt.MouseButton.RightButton:
+                # Check if clicking on a zone
+                clicked_zone = None
+                if self.zone_overlay:
+                    # Convert global position to overlay position
+                    overlay_pos = self.zone_overlay.mapFromGlobal(event.globalPosition().toPoint())
+                    clicked_zone = self.zone_overlay._get_zone_at_position(overlay_pos)
+                
+                self.zone_context_menu_requested.emit(event.globalPosition().toPoint(), clicked_zone)
+                return
+        
+        # Default handling
+        super().mousePressEvent(event)
+    
+    def mouseMoveEvent(self, event: QMouseEvent):
+        """Handle mouse move events for zone creation"""
+        if self.zone_manager and self.zones_enabled:
+            zone_creator = self.zone_manager.get_zone_creator()
+            widget_size = (self.camera_label.width(), self.camera_label.height())
+            
+            if zone_creator.handle_mouse_move(event, widget_size):
+                return  # Event handled by zone creator
+        
+        super().mouseMoveEvent(event)
+    
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        """Handle mouse release events for zone creation"""
+        if self.zone_manager and self.zones_enabled:
+            zone_creator = self.zone_manager.get_zone_creator()
+            widget_size = (self.camera_label.width(), self.camera_label.height())
+            
+            if zone_creator.handle_mouse_release(event, widget_size):
+                return  # Event handled by zone creator
+        
+        super().mouseReleaseEvent(event)

@@ -135,6 +135,12 @@ class MainWindow(QMainWindow):
     toggle_connections_requested = pyqtSignal()
     exit_application_requested = pyqtSignal()
     
+    # Zone management signals
+    create_pick_zone_requested = pyqtSignal()
+    create_drop_zone_requested = pyqtSignal()
+    toggle_zones_requested = pyqtSignal()
+    clear_zones_requested = pyqtSignal()
+    
     def __init__(self):
         super().__init__()
         
@@ -205,6 +211,22 @@ class MainWindow(QMainWindow):
                 self.reset_detection_settings_requested.emit()
                 self.logger.info("Keyboard: Reset detection settings requested")
                 
+            elif key_text == 'z':
+                self.toggle_zones_requested.emit()
+                self.logger.info("Keyboard: Toggle zones requested")
+                
+            elif key_text == '1':
+                self.create_pick_zone_requested.emit()
+                self.logger.info("Keyboard: Create pick zone requested")
+                
+            elif key_text == '2':
+                self.create_drop_zone_requested.emit()
+                self.logger.info("Keyboard: Create drop zone requested")
+                
+            elif key == Qt.Key.Key_Delete:
+                self.clear_zones_requested.emit()
+                self.logger.info("Keyboard: Clear zones requested")
+                
             elif key == Qt.Key.Key_Escape:
                 self.exit_application_requested.emit()
                 self.logger.info("Keyboard: Exit application requested")
@@ -222,8 +244,27 @@ class MainWindow(QMainWindow):
     
     def show_keyboard_help(self):
         """Show keyboard shortcuts help dialog"""
-        help_text = get_keyboard_help()
-        help_text += "\nF1 - Show this help dialog"
+        help_text = """KEYBOARD CONTROLS:
+
+DETECTION CONTROLS:
+H - Toggle hand detection
+B - Toggle pose detection  
+P - Toggle pose landmarks
+G - Toggle gesture recognition
+L - Toggle landmarks display
+C - Toggle connections display
+R - Reset all detection settings
+
+ZONE CONTROLS:
+Z - Toggle zone system
+1 - Create pick zone (click & drag)
+2 - Create drop zone (click & drag)
+Delete - Clear all zones
+Right-click - Zone context menu
+
+SYSTEM:
+F1 - Show this help dialog
+ESC - Exit application"""
         
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Keyboard Controls - NextSight v2")
