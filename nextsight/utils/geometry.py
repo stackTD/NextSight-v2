@@ -148,6 +148,90 @@ class HandLandmarkProcessor:
         
         return Point(avg_x, avg_y)
     
+    def detect_hand_gesture(self, landmarks) -> str:
+        """Detect hand gesture: 'open', 'closed', 'pinch', 'unknown'"""
+        if landmarks is None or len(landmarks) < 21:
+            return 'unknown'
+        
+        points = self.extract_hand_points(landmarks)
+        if len(points) < 21:
+            return 'unknown'
+        
+        # Calculate distances to determine gesture
+        try:
+            # Thumb tip to index tip distance (for pinch detection)
+            thumb_tip = points[self.THUMB_TIP]
+            index_tip = points[self.INDEX_TIP]
+            thumb_index_distance = self._calculate_distance(thumb_tip, index_tip)
+            
+            # Calculate finger extension ratios
+            finger_extensions = self._calculate_finger_extensions(points)
+            avg_extension = sum(finger_extensions) / len(finger_extensions)
+            
+            # Calculate overall hand span (to distinguish closed from pinch)
+            wrist = points[0]
+            max_distance = 0
+            for point in points:
+                distance = self._calculate_distance(wrist, point)
+                max_distance = max(max_distance, distance)
+            
+            # Determine gesture based on multiple factors
+            # Pinch: thumb and index close together, but overall hand span is reasonable
+            if thumb_index_distance < 0.08 and max_distance > 0.15:
+                return 'pinch'
+            # Closed: very small overall hand span (all fingers curled)
+            elif max_distance < 0.12 or avg_extension < 1.1:
+                return 'closed'
+            # Open: large hand span and extended fingers
+            elif avg_extension > 1.3 and max_distance > 0.2:
+                return 'open'
+            else:
+                return 'unknown'
+                
+        except (IndexError, ZeroDivisionError):
+            return 'unknown'
+    
+    def _calculate_distance(self, point1: Point, point2: Point) -> float:
+        """Calculate Euclidean distance between two points"""
+        return ((point1.x - point2.x) ** 2 + (point1.y - point2.y) ** 2) ** 0.5
+    
+    def _calculate_finger_extensions(self, points: List[Point]) -> List[float]:
+        """Calculate extension ratio for each finger (0=fully curled, 1=fully extended)"""
+        extensions = []
+        
+        # Finger landmark pairs: (base, tip)
+        finger_pairs = [
+            (2, 4),   # Thumb: MCP to TIP
+            (5, 8),   # Index: MCP to TIP  
+            (9, 12),  # Middle: MCP to TIP
+            (13, 16), # Ring: MCP to TIP
+            (17, 20)  # Pinky: MCP to TIP
+        ]
+        
+        wrist = points[0]
+        
+        for base_idx, tip_idx in finger_pairs:
+            if base_idx < len(points) and tip_idx < len(points):
+                base_point = points[base_idx]
+                tip_point = points[tip_idx]
+                
+                # Distance from wrist to base
+                base_distance = self._calculate_distance(wrist, base_point)
+                # Distance from wrist to tip
+                tip_distance = self._calculate_distance(wrist, tip_point)
+                
+                # Extension ratio (tip further from wrist = more extended)
+                if base_distance > 0:
+                    extension = min(tip_distance / base_distance, 2.0)  # Cap at 2.0
+                else:
+                    extension = 1.0
+                    
+                extensions.append(extension)
+            else:
+                extensions.append(1.0)  # Default to extended if landmarks missing
+        
+        return extensions
+    
     def get_fingertips(self, landmarks) -> List[Point]:
         """Get fingertip positions"""
         if landmarks is None:

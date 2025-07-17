@@ -82,3 +82,6 @@ tmp/
 # Application specific
 screenshots/
 demo_output/
+
+# Phase 4 demo files
+create_phase4_visuals.py

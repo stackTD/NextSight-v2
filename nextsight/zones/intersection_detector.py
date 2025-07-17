@@ -145,6 +145,10 @@ class IntersectionDetector:
                     landmarks, zone_rect, zone.confidence_threshold
                 )
                 
+                # Detect hand gesture for interaction events
+                gesture = self.hand_processor.detect_hand_gesture(landmarks)
+                intersection_result['gesture'] = gesture
+                
                 # Update state and check for events
                 state_key = f"{hand_id}_{zone.id}"
                 if state_key not in self.hand_zone_states:
@@ -162,19 +166,35 @@ class IntersectionDetector:
                         'hand_id': hand_id,
                         'confidence': intersection_result['confidence'],
                         'duration': state.get_duration_inside(),
-                        'method': intersection_result['method']
+                        'method': intersection_result['method'],
+                        'gesture': gesture
                     })
                 
-                # Generate events on state change
-                if state_changed:
+                # Generate events on state change or gesture
+                if state_changed or (state.is_inside and gesture in ['pinch', 'closed', 'open']):
                     event = self._create_intersection_event(
                         hand_id, zone, state, intersection_result
                     )
                     results['events'].append(event)
                     
-                    # Log intersection events for debugging
-                    event_type = "entered" if state.is_inside else "exited"
-                    self.logger.info(f"Hand {hand_id} {event_type} zone {zone.id} (confidence: {intersection_result['confidence']:.2f})")
+                    # Log interaction events for debugging
+                    if state_changed:
+                        event_type = "entered" if state.is_inside else "exited"
+                        self.logger.info(f"Hand {hand_id} {event_type} zone {zone.id} (confidence: {intersection_result['confidence']:.2f}, gesture: {gesture})")
+                    elif gesture in ['pinch', 'closed']:
+                        self.logger.info(f"Pick gesture detected: {hand_id} in zone {zone.id} (gesture: {gesture})")
+                        # Create pick event
+                        pick_event = event.copy()
+                        pick_event['type'] = 'pick_gesture_detected'
+                        pick_event['gesture'] = gesture
+                        results['events'].append(pick_event)
+                    elif gesture == 'open':
+                        self.logger.info(f"Drop gesture detected: {hand_id} in zone {zone.id} (gesture: {gesture})")
+                        # Create drop event
+                        drop_event = event.copy()
+                        drop_event['type'] = 'drop_gesture_detected'
+                        drop_event['gesture'] = gesture
+                        results['events'].append(drop_event)
                     
                     # Update zone state
                     if state.is_inside:

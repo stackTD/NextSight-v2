@@ -24,6 +24,7 @@ class ZoneManager(QObject):
     # Signals for intersection events
     hand_entered_zone = pyqtSignal(str, object, dict)  # hand_id, zone, intersection_data
     hand_exited_zone = pyqtSignal(str, object, float)  # hand_id, zone, duration
+    hand_detected_in_zone = pyqtSignal(str, str, str)  # hand_id, zone_id, gesture
     
     # Signals for status updates
     zone_status_changed = pyqtSignal(dict)  # status_data
@@ -213,6 +214,13 @@ class ZoneManager(QObject):
             # Run intersection detection
             results = self.intersection_detector.detect_intersections(active_zones, detection_info)
             
+            # Process hands detected in zones for status updates
+            for zone_id, hand_data in results['intersections'].items():
+                for hand_info in hand_data:
+                    hand_id = hand_info['hand_id']
+                    gesture = hand_info.get('gesture', 'unknown')
+                    self.hand_detected_in_zone.emit(hand_id, zone_id, gesture)
+            
             # Process events for pick/drop detection
             self.process_interaction_events(results['events'])
             
@@ -246,6 +254,20 @@ class ZoneManager(QObject):
                             self.session_stats['total_drops'] += 1
                             self.drop_event_detected.emit(event['hand_id'], event['zone_id'])
                             self.logger.info(f"Drop event: {event['hand_id']} in {event['zone_id']}")
+
+                elif event['type'] == 'pick_gesture_detected':
+                    # Handle pick gesture (pinch/closed hand)
+                    self.pick_events.append(event)
+                    self.session_stats['total_picks'] += 1
+                    self.pick_event_detected.emit(event['hand_id'], event['zone_id'])
+                    self.logger.info(f"Pick gesture: {event['hand_id']} performed {event['gesture']} in {event['zone_id']}")
+                    
+                elif event['type'] == 'drop_gesture_detected':
+                    # Handle drop gesture (open hand)
+                    self.drop_events.append(event)
+                    self.session_stats['total_drops'] += 1
+                    self.drop_event_detected.emit(event['hand_id'], event['zone_id'])
+                    self.logger.info(f"Drop gesture: {event['hand_id']} performed {event['gesture']} in {event['zone_id']}")
                 
             except Exception as e:
                 self.logger.error(f"Error processing interaction event: {e}")
