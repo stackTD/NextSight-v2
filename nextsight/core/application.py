@@ -106,6 +106,12 @@ class NextSightApplication:
         self.zone_manager.pick_event_detected.connect(status_bar.on_pick_event)
         self.zone_manager.drop_event_detected.connect(status_bar.on_drop_event)
         
+        # Zone creator status connections
+        zone_creator = self.zone_manager.get_zone_creator()
+        zone_creator.zone_creation_started.connect(lambda zone_type: status_bar.set_zone_creation_mode(zone_type))
+        zone_creator.zone_creation_completed.connect(lambda zone: status_bar.set_zone_creation_mode(None))
+        zone_creator.zone_creation_cancelled.connect(lambda: status_bar.set_zone_creation_mode(None))
+        
         # UI control connections (backward compatibility)
         main_widget.toggle_detection_requested.connect(self.toggle_hand_detection)
         main_widget.toggle_landmarks_requested.connect(self.toggle_landmarks)
@@ -321,8 +327,11 @@ class NextSightApplication:
             camera_widget = main_widget.get_camera_widget()
             camera_widget.enable_zones(new_state)
             
+            # Update status bar with zone system state
+            status_bar = self.main_window.get_status_bar()
+            status_bar.set_zone_system_enabled(new_state)
+            
             status = "enabled" if new_state else "disabled"
-            self.main_window.get_status_bar().show_zone_message(f"Zone system {status}")
             self.logger.info(f"Zone system {status}")
     
     def clear_zones(self):

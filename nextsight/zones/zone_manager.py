@@ -147,9 +147,16 @@ class ZoneManager(QObject):
             if zone and self.config.remove_zone(zone_id):
                 self.session_stats['zones_deleted'] += 1
                 self.intersection_detector.reset_zone_states(zone_id)
+                
+                # Emit deletion signal BEFORE saving to ensure UI updates
                 self.zone_deleted.emit(zone_id)
+                
                 self.save_configuration()
                 self.logger.info(f"Deleted zone: {zone_id}")
+                
+                # Force status update to reflect changes
+                self.update_zone_status()
+                
                 return True
             return False
         except Exception as e:
@@ -337,11 +344,23 @@ class ZoneManager(QObject):
     def clear_all_zones(self) -> bool:
         """Clear all zones"""
         try:
+            # Store zone IDs before clearing for UI updates
+            zone_ids = [zone.id for zone in self.config.zones]
+            
             self.config.clear_zones()
             self.intersection_detector.reset_zone_states()
             self.pick_events.clear()
             self.drop_events.clear()
+            
+            # Emit deletion signals for each zone to clear UI
+            for zone_id in zone_ids:
+                self.zone_deleted.emit(zone_id)
+            
             self.save_configuration()
+            
+            # Force status update to reflect changes
+            self.update_zone_status()
+            
             self.logger.info("All zones cleared")
             return True
         except Exception as e:

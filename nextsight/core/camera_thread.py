@@ -126,6 +126,10 @@ class CameraThread(QThread):
                 zone_intersections = {}
                 if self.zone_manager and self.zones_enabled:
                     try:
+                        # Set frame size for coordinate calculations
+                        height, width = frame.shape[:2]
+                        self.zone_manager.set_frame_size(width, height)
+                        
                         zone_results = self.zone_manager.process_frame_detections(detection_info)
                         zone_intersections = zone_results.get('intersections', {})
                         self.zone_intersections_update.emit(zone_intersections)
