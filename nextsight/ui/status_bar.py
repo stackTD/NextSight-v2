@@ -304,13 +304,19 @@ class StatusBar(QStatusBar):
     def on_pick_event(self, hand_id: str, zone_id: str):
         """Handle pick event"""
         self.last_pick_time = time.time()
-        self.showMessage(f"Pick detected: {hand_id} in {zone_id}", 2000)
+        self.showMessage(f"✓ PICK: {hand_id} in {zone_id}", 2000)
+        # Flash pick counter briefly
+        self.pick_counter.setStyleSheet("color: #00ff00; font-weight: bold; background-color: rgba(0, 255, 0, 50);")
+        QTimer.singleShot(1000, lambda: self.pick_counter.setStyleSheet("color: #00ff00; font-weight: bold;"))
         self.update_indicators()
     
     def on_drop_event(self, hand_id: str, zone_id: str):
         """Handle drop event"""
         self.last_drop_time = time.time()
-        self.showMessage(f"Drop detected: {hand_id} in {zone_id}", 2000)
+        self.showMessage(f"✓ DROP: {hand_id} in {zone_id}", 2000)
+        # Flash drop counter briefly
+        self.drop_counter.setStyleSheet("color: #0080ff; font-weight: bold; background-color: rgba(0, 128, 255, 50);")
+        QTimer.singleShot(1000, lambda: self.drop_counter.setStyleSheet("color: #0080ff; font-weight: bold;"))
         self.update_indicators()
     
     def show_zone_message(self, message: str, timeout: int = 3000):

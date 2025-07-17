@@ -60,12 +60,12 @@ class ZoneOverlay(QWidget):
     
     def set_zones(self, zones: List[Zone]):
         """Update zones to display"""
-        self.zones = zones.copy()
+        self.zones = zones.copy() if zones else []
         self.update()
     
     def set_zone_intersections(self, intersections: Dict[str, List[Dict]]):
         """Update zone intersection data"""
-        self.zone_intersections = intersections.copy()
+        self.zone_intersections = intersections.copy() if intersections else {}
         self.update()
     
     def set_preview_zone(self, preview_data: Optional[Dict]):
@@ -137,6 +137,13 @@ class ZoneOverlay(QWidget):
                 base_color.setAlpha(blink_alpha)
             else:
                 base_color.setAlpha(int(zone.alpha * 255 * 1.5))
+                
+            # Add glow effect for active zones
+            glow_color = base_color.lighter(200)
+            glow_color.setAlpha(100)
+            painter.setPen(QPen(glow_color, zone.border_width + 4))
+            painter.setBrush(QBrush())  # No fill for glow
+            painter.drawRect(widget_rect.adjusted(-2, -2, 2, 2))
         else:
             base_color.setAlpha(int(zone.alpha * 255))
         

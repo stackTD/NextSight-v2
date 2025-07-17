@@ -207,6 +207,8 @@ class ZoneManager(QObject):
         try:
             # Get active zones
             active_zones = self.config.get_active_zones()
+            if not active_zones:
+                return {'intersections': {}, 'events': [], 'statistics': {}}
             
             # Run intersection detection
             results = self.intersection_detector.detect_intersections(active_zones, detection_info)
