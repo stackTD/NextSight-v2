@@ -3,7 +3,7 @@ Configuration settings for NextSight v2
 """
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Tuple
 
 
@@ -38,9 +38,9 @@ class UIConfig:
 @dataclass
 class AppConfig:
     """Main application configuration"""
-    camera: CameraConfig = CameraConfig()
-    hand_detection: HandDetectionConfig = HandDetectionConfig()
-    ui: UIConfig = UIConfig()
+    camera: CameraConfig = field(default_factory=CameraConfig)
+    hand_detection: HandDetectionConfig = field(default_factory=HandDetectionConfig)
+    ui: UIConfig = field(default_factory=UIConfig)
     
     # Performance settings
     target_fps: int = 30

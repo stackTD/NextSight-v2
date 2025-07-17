@@ -16,7 +16,7 @@ class CameraThread(QThread):
     """Thread for camera capture and processing"""
     
     # Signals
-    frame_ready = pyqtSignal(QImage, dict)  # Processed frame and detection info
+    frame_ready = pyqtSignal(object, dict)  # Processed frame and detection info
     status_update = pyqtSignal(str)  # Status messages
     error_occurred = pyqtSignal(str)  # Error messages
     fps_update = pyqtSignal(float)  # FPS updates

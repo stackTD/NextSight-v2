@@ -139,18 +139,18 @@ class StatusBar(QStatusBar):
         """Update camera connection status"""
         self.is_camera_connected = connected
         if connected:
-            self.show_message("Camera connected successfully", 3000)
+            self.showMessage("Camera connected successfully", 3000)
         else:
-            self.show_message("Camera disconnected", 3000)
+            self.showMessage("Camera disconnected", 3000)
         self.update_indicators()
     
     def set_detection_status(self, active: bool):
         """Update detection status"""
         self.is_detection_active = active
         if active:
-            self.show_message("Hand detection activated", 2000)
+            self.showMessage("Hand detection activated", 2000)
         else:
-            self.show_message("Hand detection deactivated", 2000)
+            self.showMessage("Hand detection deactivated", 2000)
         self.update_indicators()
     
     def update_fps(self, fps: float):

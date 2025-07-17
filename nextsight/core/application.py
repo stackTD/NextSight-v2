@@ -98,7 +98,6 @@ class NextSightApplication:
         
         self.logger.info("Signal connections established")
     
-    @pyqtSlot(object, dict)
     def on_frame_ready(self, qt_image, detection_info):
         """Handle new frame from camera thread"""
         # Update status bar with detection info
@@ -108,13 +107,11 @@ class NextSightApplication:
         # Update main widget with detection info
         self.main_window.get_main_widget().update_detection_info(detection_info)
     
-    @pyqtSlot(str)
     def on_camera_error(self, error_message):
         """Handle camera errors"""
         self.logger.error(f"Camera error: {error_message}")
         self.main_window.get_status_bar().set_camera_status(False)
     
-    @pyqtSlot()
     def toggle_detection(self):
         """Toggle hand detection"""
         if self.camera_thread:
@@ -122,28 +119,24 @@ class NextSightApplication:
             self.main_window.get_status_bar().set_detection_status(enabled)
             self.logger.info(f"Hand detection {'enabled' if enabled else 'disabled'}")
     
-    @pyqtSlot()
     def toggle_landmarks(self):
         """Toggle landmark visibility"""
         if self.camera_thread:
             enabled = self.camera_thread.toggle_landmarks()
             self.logger.info(f"Landmarks {'enabled' if enabled else 'disabled'}")
     
-    @pyqtSlot()
     def toggle_connections(self):
         """Toggle connection lines"""
         if self.camera_thread:
             enabled = self.camera_thread.toggle_connections()
             self.logger.info(f"Connections {'enabled' if enabled else 'disabled'}")
     
-    @pyqtSlot(float)
     def set_confidence_threshold(self, threshold):
         """Set detection confidence threshold"""
         if self.camera_thread:
             self.camera_thread.set_confidence_threshold(threshold)
             self.logger.info(f"Confidence threshold set to {threshold:.2f}")
     
-    @pyqtSlot(int)
     def switch_camera(self, camera_index):
         """Switch to different camera"""
         if self.camera_thread:
