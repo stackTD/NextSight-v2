@@ -103,6 +103,9 @@ class ZoneCreator(QObject):
             preview_rect = self._get_preview_rectangle()
             if preview_rect:
                 self.zone_preview_updated.emit(preview_rect)
+            else:
+                # Clear preview if rectangle too small
+                self.zone_preview_updated.emit(None)
             
             return True
         
@@ -199,10 +202,10 @@ class ZoneCreator(QObject):
         color = self.preview_colors[zone_type]
         
         return {
-            'x': left,
-            'y': top,
-            'width': width,
-            'height': height,
+            'x': left / self.frame_width,      # Normalize to 0-1
+            'y': top / self.frame_height,      # Normalize to 0-1
+            'width': width / self.frame_width,  # Normalize to 0-1
+            'height': height / self.frame_height, # Normalize to 0-1
             'color': color,
             'alpha': self.preview_alpha,
             'border_width': self.preview_border_width,

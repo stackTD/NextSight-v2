@@ -308,6 +308,9 @@ class CameraWidget(QWidget):
             # Setup mouse interaction for zone creation
             zone_creator = zone_manager.get_zone_creator()
             zone_creator.zone_preview_updated.connect(self.on_zone_preview_updated)
+            
+            # Set frame size for coordinate calculations  
+            zone_manager.set_frame_size(640, 480)  # Default size, will be updated by camera thread
         
         self.zones_enabled = True
     

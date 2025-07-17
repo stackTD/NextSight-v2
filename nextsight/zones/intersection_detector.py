@@ -109,15 +109,20 @@ class IntersectionDetector:
         }
         
         if not zones or 'hands' not in detection_info:
+            if zones and 'hands' not in detection_info:
+                self.logger.debug("No hands data in detection_info")
             return results
         
         hands_info = detection_info['hands']
-        if not hands_info.get('landmarks'):
+        if not hands_info.get('hand_landmarks'):
+            self.logger.debug("No hand_landmarks in hands_info")
             return results
         
         # Process each hand
-        landmarks_list = hands_info['landmarks']
+        landmarks_list = hands_info['hand_landmarks']
         handedness_list = hands_info.get('handedness', [])
+        
+        self.logger.debug(f"Processing {len(landmarks_list)} hands with {len(zones)} zones")
         
         for hand_idx, landmarks in enumerate(landmarks_list):
             if landmarks is None:
@@ -166,6 +171,10 @@ class IntersectionDetector:
                         hand_id, zone, state, intersection_result
                     )
                     results['events'].append(event)
+                    
+                    # Log intersection events for debugging
+                    event_type = "entered" if state.is_inside else "exited"
+                    self.logger.info(f"Hand {hand_id} {event_type} zone {zone.id} (confidence: {intersection_result['confidence']:.2f})")
                     
                     # Update zone state
                     if state.is_inside:

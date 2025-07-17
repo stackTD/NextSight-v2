@@ -99,7 +99,11 @@ class HandLandmarkProcessor:
         
         if landmarks is not None:
             for landmark in landmarks:
-                points.append(Point(landmark.x, landmark.y))
+                # Handle both dict and object formats
+                if isinstance(landmark, dict):
+                    points.append(Point(landmark['x'], landmark['y']))
+                else:
+                    points.append(Point(landmark.x, landmark.y))
         
         return points
     

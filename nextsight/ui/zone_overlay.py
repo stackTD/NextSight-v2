@@ -20,9 +20,13 @@ class ZoneOverlay(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         
-        # Make widget transparent for overlay
+        # Make widget transparent for overlay but receive mouse events
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
         self.setStyleSheet("background: transparent;")
+        
+        # Enable mouse tracking for hover effects  
+        self.setMouseTracking(True)
         
         # Zone data
         self.zones: List[Zone] = []
@@ -251,10 +255,12 @@ class ZoneOverlay(QWidget):
     
     def _draw_preview_zone(self, painter: QPainter, preview_data: Dict):
         """Draw zone creation preview"""
-        # Convert frame coordinates to widget coordinates
+        # Convert normalized coordinates to widget coordinates
         widget_rect = self._frame_to_widget_rect(
-            preview_data['x'], preview_data['y'],
-            preview_data['width'], preview_data['height']
+            preview_data['x'] * self.frame_width, 
+            preview_data['y'] * self.frame_height,
+            preview_data['width'] * self.frame_width, 
+            preview_data['height'] * self.frame_height
         )
         
         if not widget_rect:
@@ -395,7 +401,7 @@ class ZoneOverlay(QWidget):
         super().mouseMoveEvent(event)
     
     def _get_zone_at_position(self, pos) -> Optional[Zone]:
-        """Get zone at mouse position"""
+        """Get zone at mouse position (public method for camera widget)"""
         for zone in self.zones:
             if not zone.active:
                 continue
