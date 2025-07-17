@@ -1,0 +1,225 @@
+"""
+Camera display widget for NextSight v2
+"""
+
+from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSizePolicy
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QPixmap, QImage, QPainter, QPen, QFont
+from typing import Optional, Dict
+
+
+class CameraWidget(QWidget):
+    """Professional camera display widget with overlay support"""
+    
+    # Signals
+    clicked = pyqtSignal()
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("cameraPanel")
+        
+        # Display properties
+        self.current_image = None
+        self.detection_info = {}
+        self.show_info_overlay = True
+        self.aspect_ratio = 16/9
+        
+        # Performance tracking
+        self.fps_display = 0.0
+        self.frame_count = 0
+        
+        self.setup_ui()
+        
+    def setup_ui(self):
+        """Setup the camera display UI"""
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
+        
+        # Camera display label
+        self.camera_label = QLabel()
+        self.camera_label.setObjectName("cameraDisplay")
+        self.camera_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.camera_label.setMinimumSize(640, 360)
+        self.camera_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding, 
+            QSizePolicy.Policy.Expanding
+        )
+        self.camera_label.setScaledContents(False)
+        
+        # Set placeholder text
+        self.camera_label.setText("Initializing Camera...")
+        self.camera_label.setStyleSheet("""
+            QLabel {
+                border: 2px solid #007ACC;
+                border-radius: 8px;
+                background-color: #000000;
+                color: #ffffff;
+                font-size: 14pt;
+                font-weight: bold;
+            }
+        """)
+        
+        # Info panel for detection stats
+        self.info_label = QLabel()
+        self.info_label.setObjectName("infoLabel")
+        self.info_label.setMaximumHeight(80)
+        self.info_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.info_label.setWordWrap(True)
+        self.info_label.setStyleSheet("""
+            QLabel {
+                background-color: rgba(45, 45, 48, 200);
+                border: 1px solid #3e3e42;
+                border-radius: 6px;
+                padding: 8px;
+                color: #ffffff;
+                font-size: 9pt;
+            }
+        """)
+        
+        layout.addWidget(self.camera_label)
+        layout.addWidget(self.info_label)
+        
+        # Update info periodically
+        self.info_timer = QTimer()
+        self.info_timer.timeout.connect(self.update_info_display)
+        self.info_timer.start(500)  # Update every 500ms
+    
+    def update_frame(self, qt_image: QImage, detection_info: Dict):
+        """Update the camera display with new frame"""
+        if qt_image.isNull():
+            return
+            
+        self.current_image = qt_image
+        self.detection_info = detection_info
+        self.frame_count += 1
+        
+        # Scale image to fit widget while maintaining aspect ratio
+        scaled_image = self.scale_image_to_fit(qt_image)
+        
+        # Add overlay if enabled
+        if self.show_info_overlay:
+            scaled_image = self.add_info_overlay(scaled_image)
+        
+        # Update display
+        pixmap = QPixmap.fromImage(scaled_image)
+        self.camera_label.setPixmap(pixmap)
+        self.camera_label.setText("")  # Clear placeholder text
+    
+    def scale_image_to_fit(self, image: QImage) -> QImage:
+        """Scale image to fit the widget while maintaining aspect ratio"""
+        label_size = self.camera_label.size()
+        
+        if label_size.width() <= 0 or label_size.height() <= 0:
+            return image
+        
+        # Calculate scaling to fit within widget
+        scale_w = label_size.width() / image.width()
+        scale_h = label_size.height() / image.height()
+        scale = min(scale_w, scale_h)
+        
+        # Scale the image
+        new_width = int(image.width() * scale)
+        new_height = int(image.height() * scale)
+        
+        return image.scaled(
+            new_width, new_height,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
+    
+    def add_info_overlay(self, image: QImage) -> QImage:
+        """Add information overlay to the image"""
+        if not self.detection_info:
+            return image
+        
+        # Create a copy to draw on
+        overlay_image = image.copy()
+        painter = QPainter(overlay_image)
+        
+        # Setup painter
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Draw FPS counter
+        fps_text = f"FPS: {self.fps_display:.1f}"
+        painter.setPen(QPen(Qt.GlobalColor.green, 2))
+        painter.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        painter.drawText(10, 25, fps_text)
+        
+        # Draw hand count
+        hands_detected = self.detection_info.get('hands_detected', 0)
+        hands_text = f"Hands: {hands_detected}"
+        painter.setPen(QPen(Qt.GlobalColor.cyan, 2))
+        painter.drawText(10, 50, hands_text)
+        
+        # Draw handedness labels
+        if 'handedness' in self.detection_info and self.detection_info['handedness']:
+            y_offset = 75
+            for hand_type in self.detection_info['handedness']:
+                painter.setPen(QPen(Qt.GlobalColor.yellow, 2))
+                painter.drawText(10, y_offset, f"• {hand_type}")
+                y_offset += 20
+        
+        painter.end()
+        return overlay_image
+    
+    def update_fps(self, fps: float):
+        """Update FPS display"""
+        self.fps_display = fps
+    
+    def update_info_display(self):
+        """Update the information display panel"""
+        if not self.detection_info:
+            self.info_label.setText("Detection Info: No data available")
+            return
+        
+        hands_count = self.detection_info.get('hands_detected', 0)
+        handedness = self.detection_info.get('handedness', [])
+        
+        info_text = f"""
+<b>Detection Status:</b><br>
+• Hands detected: {hands_count}<br>
+• Frame count: {self.frame_count}<br>
+• FPS: {self.fps_display:.1f}<br>
+        """.strip()
+        
+        if handedness:
+            info_text += f"<br>• Hand types: {', '.join(handedness)}"
+        
+        self.info_label.setText(info_text)
+    
+    def toggle_info_overlay(self) -> bool:
+        """Toggle the information overlay"""
+        self.show_info_overlay = not self.show_info_overlay
+        return self.show_info_overlay
+    
+    def toggle_info_panel(self) -> bool:
+        """Toggle the information panel visibility"""
+        visible = self.info_label.isVisible()
+        self.info_label.setVisible(not visible)
+        return not visible
+    
+    def set_placeholder_text(self, text: str):
+        """Set placeholder text when no camera feed"""
+        self.camera_label.clear()
+        self.camera_label.setText(text)
+    
+    def clear_display(self):
+        """Clear the camera display"""
+        self.camera_label.clear()
+        self.camera_label.setText("Camera Disconnected")
+        self.detection_info = {}
+        self.frame_count = 0
+        self.fps_display = 0.0
+    
+    def mousePressEvent(self, event):
+        """Handle mouse clicks"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
+    
+    def resizeEvent(self, event):
+        """Handle widget resize"""
+        super().resizeEvent(event)
+        # Update display if we have an image
+        if self.current_image:
+            self.update_frame(self.current_image, self.detection_info)
