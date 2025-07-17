@@ -86,12 +86,29 @@ class NextSightApplication:
         self.camera_thread.error_occurred.connect(status_bar.show_error_message)
         self.camera_thread.error_occurred.connect(self.on_camera_error)
         
-        # UI control connections
-        main_widget.toggle_detection_requested.connect(self.toggle_detection)
+        # UI control connections (backward compatibility)
+        main_widget.toggle_detection_requested.connect(self.toggle_hand_detection)
         main_widget.toggle_landmarks_requested.connect(self.toggle_landmarks)
         main_widget.toggle_connections_requested.connect(self.toggle_connections)
         main_widget.confidence_threshold_changed.connect(self.set_confidence_threshold)
         main_widget.camera_switch_requested.connect(self.switch_camera)
+        
+        # New Phase 2 control connections
+        main_widget.toggle_hand_detection_requested.connect(self.toggle_hand_detection)
+        main_widget.toggle_pose_detection_requested.connect(self.toggle_pose_detection)
+        main_widget.toggle_pose_landmarks_requested.connect(self.toggle_pose_landmarks)
+        main_widget.toggle_gesture_recognition_requested.connect(self.toggle_gesture_recognition)
+        main_widget.reset_detection_settings_requested.connect(self.reset_detection_settings)
+        
+        # Keyboard control connections from main window
+        self.main_window.toggle_hand_detection_requested.connect(self.toggle_hand_detection)
+        self.main_window.toggle_pose_detection_requested.connect(self.toggle_pose_detection)
+        self.main_window.toggle_pose_landmarks_requested.connect(self.toggle_pose_landmarks)
+        self.main_window.toggle_gesture_recognition_requested.connect(self.toggle_gesture_recognition)
+        self.main_window.reset_detection_settings_requested.connect(self.reset_detection_settings)
+        self.main_window.toggle_landmarks_requested.connect(self.toggle_landmarks)
+        self.main_window.toggle_connections_requested.connect(self.toggle_connections)
+        self.main_window.exit_application_requested.connect(self.exit_application)
         
         # Window close connection
         self.main_window.closeEvent = self.on_close_event
@@ -101,8 +118,18 @@ class NextSightApplication:
     def on_frame_ready(self, qt_image, detection_info):
         """Handle new frame from camera thread"""
         # Update status bar with detection info
-        hands_count = detection_info.get('hands_detected', 0)
+        hands_count = 0
+        pose_detected = False
+        
+        # Extract information from new detection format
+        if 'hands' in detection_info:
+            hands_count = detection_info['hands'].get('hands_detected', 0)
+        if 'pose' in detection_info:
+            pose_detected = detection_info['pose'].get('pose_detected', False)
+        
         self.main_window.get_status_bar().update_hands_count(hands_count)
+        if hasattr(self.main_window.get_status_bar(), 'update_pose_status'):
+            self.main_window.get_status_bar().update_pose_status(pose_detected)
         
         # Update main widget with detection info
         self.main_window.get_main_widget().update_detection_info(detection_info)
@@ -112,12 +139,25 @@ class NextSightApplication:
         self.logger.error(f"Camera error: {error_message}")
         self.main_window.get_status_bar().set_camera_status(False)
     
-    def toggle_detection(self):
+    def toggle_hand_detection(self):
         """Toggle hand detection"""
         if self.camera_thread:
             enabled = self.camera_thread.toggle_hand_detection()
             self.main_window.get_status_bar().set_detection_status(enabled)
             self.logger.info(f"Hand detection {'enabled' if enabled else 'disabled'}")
+    
+    def toggle_pose_detection(self):
+        """Toggle pose detection"""
+        if self.camera_thread:
+            enabled = self.camera_thread.toggle_pose_detection()
+            # Update status bar if it supports pose status
+            if hasattr(self.main_window.get_status_bar(), 'set_pose_status'):
+                self.main_window.get_status_bar().set_pose_status(enabled)
+            self.logger.info(f"Pose detection {'enabled' if enabled else 'disabled'}")
+    
+    def toggle_detection(self):
+        """Toggle hand detection (for backward compatibility)"""
+        self.toggle_hand_detection()
     
     def toggle_landmarks(self):
         """Toggle landmark visibility"""
@@ -130,6 +170,30 @@ class NextSightApplication:
         if self.camera_thread:
             enabled = self.camera_thread.toggle_connections()
             self.logger.info(f"Connections {'enabled' if enabled else 'disabled'}")
+    
+    def toggle_pose_landmarks(self):
+        """Toggle pose landmark visibility"""
+        if self.camera_thread:
+            enabled = self.camera_thread.toggle_pose_landmarks()
+            self.logger.info(f"Pose landmarks {'enabled' if enabled else 'disabled'}")
+    
+    def toggle_gesture_recognition(self):
+        """Toggle gesture recognition"""
+        if self.camera_thread:
+            enabled = self.camera_thread.toggle_gesture_recognition()
+            self.logger.info(f"Gesture recognition {'enabled' if enabled else 'disabled'}")
+    
+    def reset_detection_settings(self):
+        """Reset all detection settings to defaults"""
+        if self.camera_thread:
+            self.camera_thread.reset_detection_settings()
+            self.main_window.get_status_bar().set_detection_status(True)
+            self.logger.info("Detection settings reset to defaults")
+    
+    def exit_application(self):
+        """Exit the application gracefully"""
+        self.logger.info("Exit application requested via keyboard")
+        self.main_window.close()
     
     def set_confidence_threshold(self, threshold):
         """Set detection confidence threshold"""

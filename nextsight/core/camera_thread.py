@@ -9,7 +9,7 @@ from PyQt6.QtCore import QThread, pyqtSignal, QMutex, QWaitCondition
 from PyQt6.QtGui import QImage
 from typing import Optional
 from nextsight.utils.config import config
-from nextsight.vision.detector import HandDetector
+from nextsight.vision.detector import MultiModalDetector
 
 
 class CameraThread(QThread):
@@ -34,8 +34,8 @@ class CameraThread(QThread):
         self.mutex = QMutex()
         self.pause_condition = QWaitCondition()
         
-        # Hand detection
-        self.hand_detector = HandDetector()
+        # Multi-modal detection (hands + pose)
+        self.detector = MultiModalDetector()
         
         # Performance tracking
         self.fps_counter = 0
@@ -114,8 +114,8 @@ class CameraThread(QThread):
                 # Flip frame horizontally for mirror effect
                 frame = cv2.flip(frame, 1)
                 
-                # Process with hand detection
-                processed_frame, detection_info = self.hand_detector.process_frame(frame)
+                # Process with multi-modal detection
+                processed_frame, detection_info = self.detector.process_frame(frame)
                 
                 # Convert to QImage for display
                 qt_image = self.cv_to_qt_image(processed_frame)
@@ -229,24 +229,40 @@ class CameraThread(QThread):
             self.start()
     
     def get_detection_stats(self) -> dict:
-        """Get hand detection statistics"""
-        return self.hand_detector.get_detection_stats()
+        """Get multi-modal detection statistics"""
+        return self.detector.get_detection_stats()
     
     def toggle_hand_detection(self) -> bool:
         """Toggle hand detection"""
-        return self.hand_detector.toggle_detection()
+        return self.detector.toggle_hand_detection()
+    
+    def toggle_pose_detection(self) -> bool:
+        """Toggle pose detection"""
+        return self.detector.toggle_pose_detection()
     
     def toggle_landmarks(self) -> bool:
-        """Toggle landmark visibility"""
-        return self.hand_detector.toggle_landmarks()
+        """Toggle landmark visibility (hands)"""
+        return self.detector.toggle_hand_landmarks()
     
     def toggle_connections(self) -> bool:
-        """Toggle connection lines"""
-        return self.hand_detector.toggle_connections()
+        """Toggle connection lines (hands)"""
+        return self.detector.toggle_hand_connections()
+    
+    def toggle_pose_landmarks(self) -> bool:
+        """Toggle pose landmark visibility"""
+        return self.detector.toggle_pose_landmarks()
+    
+    def toggle_gesture_recognition(self) -> bool:
+        """Toggle gesture recognition"""
+        return self.detector.toggle_gesture_recognition()
+    
+    def reset_detection_settings(self):
+        """Reset all detection settings"""
+        self.detector.reset_detection_settings()
     
     def set_confidence_threshold(self, threshold: float):
         """Set detection confidence threshold"""
-        self.hand_detector.set_confidence_threshold(threshold)
+        self.detector.set_confidence_threshold(threshold)
     
     def cleanup(self):
         """Clean up resources"""
@@ -254,5 +270,5 @@ class CameraThread(QThread):
             self.camera.release()
             self.camera = None
         
-        self.hand_detector.cleanup()
+        self.detector.cleanup()
         self.status_update.emit("Camera resources cleaned up")
