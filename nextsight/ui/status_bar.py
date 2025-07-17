@@ -94,6 +94,20 @@ class StatusBar(QStatusBar):
         self.drop_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.addPermanentWidget(self.drop_counter)
         
+        # Hand interaction status
+        self.hand_interaction_status = QLabel("No hand interaction")
+        self.hand_interaction_status.setMinimumWidth(150)
+        self.hand_interaction_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.hand_interaction_status.setStyleSheet("color: #ffffff; font-weight: bold;")
+        self.addPermanentWidget(self.hand_interaction_status)
+        
+        # Keyboard instructions panel
+        self.keyboard_instructions = QLabel("Press F1 for help | Z: Toggle zones | 1: Create pick zone | 2: Create drop zone")
+        self.keyboard_instructions.setMinimumWidth(400)
+        self.keyboard_instructions.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.keyboard_instructions.setStyleSheet("color: #66ccff; font-weight: bold; font-size: 9pt;")
+        self.addPermanentWidget(self.keyboard_instructions)
+        
         # Performance indicator
         self.performance_indicator = QLabel()
         self.performance_indicator.setMinimumWidth(20)
@@ -322,3 +336,29 @@ class StatusBar(QStatusBar):
     def show_zone_message(self, message: str, timeout: int = 3000):
         """Show zone-related status message"""
         self.show_status_message(f"Zone: {message}", timeout)
+    
+    def show_hand_interaction(self, interaction_type: str, zone_id: str = None):
+        """Show hand interaction status"""
+        if interaction_type == "detected":
+            if zone_id:
+                text = f"Hand Detected in {zone_id}"
+                color = "#00ff00"
+            else:
+                text = "Hand Detected"
+                color = "#00cc00"
+        elif interaction_type == "pick":
+            text = f"Pick Event in {zone_id}" if zone_id else "Pick Event"
+            color = "#ff9900"
+        elif interaction_type == "drop":
+            text = f"Drop Event in {zone_id}" if zone_id else "Drop Event"
+            color = "#00ccff"
+        else:
+            text = "No hand interaction"
+            color = "#ffffff"
+        
+        self.hand_interaction_status.setText(text)
+        self.hand_interaction_status.setStyleSheet(f"color: {color}; font-weight: bold;")
+        
+        # Auto-reset after 3 seconds for detected/pick/drop events
+        if interaction_type in ["detected", "pick", "drop"]:
+            QTimer.singleShot(3000, lambda: self.show_hand_interaction("none"))

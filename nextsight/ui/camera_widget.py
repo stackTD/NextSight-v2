@@ -18,7 +18,6 @@ class CameraWidget(QWidget):
     
     # Signals
     clicked = pyqtSignal()
-    zone_context_menu_requested = pyqtSignal(object, object)  # position, zone
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -406,7 +405,7 @@ class CameraWidget(QWidget):
             self.zone_overlay.animate_step()
     
     def mousePressEvent(self, event: QMouseEvent):
-        """Handle mouse press events for zone creation and context menu"""
+        """Handle mouse press events for zone creation only"""
         if self.zone_manager and self.zones_enabled:
             zone_creator = self.zone_manager.get_zone_creator()
             
@@ -426,18 +425,6 @@ class CameraWidget(QWidget):
             
             if zone_creator.handle_mouse_press(camera_event, widget_size):
                 return  # Event handled by zone creator
-            
-            # Handle right-click context menu
-            if event.button() == Qt.MouseButton.RightButton:
-                # Check if clicking on a zone
-                clicked_zone = None
-                if self.zone_overlay:
-                    # Convert to overlay position
-                    overlay_pos = self.zone_overlay.mapFromParent(camera_pos)
-                    clicked_zone = self.zone_overlay._get_zone_at_position(overlay_pos)
-                
-                self.zone_context_menu_requested.emit(event.globalPosition().toPoint(), clicked_zone)
-                return
         
         # Default handling
         super().mousePressEvent(event)
