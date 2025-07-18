@@ -348,7 +348,7 @@ class CameraWidget(QWidget):
         # Connect zone manager signals
         if zone_manager:
             zone_manager.zone_created.connect(self.on_zones_updated)
-            zone_manager.zone_deleted.connect(self.on_zones_updated)
+            zone_manager.zone_deleted.connect(self.on_zone_deleted)
             zone_manager.zone_updated.connect(self.on_zones_updated)
             
             # Setup mouse interaction for zone creation
@@ -378,6 +378,23 @@ class CameraWidget(QWidget):
             self.zone_overlay.set_zones(zones)
             # Force update to ensure visual refresh
             self.zone_overlay.update()
+    
+    def on_zone_deleted(self, zone_id: str):
+        """Handle zone deletion specifically"""
+        if self.zone_manager and self.zone_overlay and self.zones_enabled:
+            # Clear any selection/hover state for the deleted zone
+            if hasattr(self.zone_overlay, 'selected_zone_id') and self.zone_overlay.selected_zone_id == zone_id:
+                self.zone_overlay.selected_zone_id = None
+            if hasattr(self.zone_overlay, 'hovered_zone_id') and self.zone_overlay.hovered_zone_id == zone_id:
+                self.zone_overlay.hovered_zone_id = None
+            
+            # Update zones list
+            zones = self.zone_manager.get_zones(active_only=True)
+            self.zone_overlay.set_zones(zones)
+            
+            # Force immediate visual refresh
+            self.zone_overlay.update()
+            self.update()  # Update the camera widget too
     
     def on_zone_preview_updated(self, preview_data):
         """Handle zone creation preview updates"""
