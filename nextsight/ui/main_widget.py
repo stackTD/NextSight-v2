@@ -102,8 +102,8 @@ class MainWidget(QWidget):
     
     def on_hand_detection_toggle(self):
         """Handle hand detection toggle"""
-        self.detection_enabled = not self.detection_enabled
-        self.toggle_detection_requested.emit()  # For backward compatibility
+        # self.detection_enabled = not self.detection_enabled
+        # self.toggle_detection_requested.emit()  # For backward compatibility
         self.toggle_hand_detection_requested.emit()
     
     def on_pose_detection_toggle(self):

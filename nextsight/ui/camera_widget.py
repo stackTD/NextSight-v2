@@ -230,6 +230,7 @@ class CameraWidget(QWidget):
     def update_fps(self, fps: float):
         """Update FPS display"""
         self.fps_display = fps
+        pass
     
     def update_info_display(self):
         """Update the information display panel"""
@@ -242,7 +243,6 @@ class CameraWidget(QWidget):
         
         info_text = f"""
 <b>Detection Status:</b><br>
-• Hands detected: {hands_count}<br>
 • Frame count: {self.frame_count}<br>
 • FPS: {self.fps_display:.1f}<br>
         """.strip()

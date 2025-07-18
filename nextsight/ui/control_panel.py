@@ -222,6 +222,10 @@ class EnhancedControlPanel(QWidget):
 B - Toggle Pose Detection  
 P - Toggle Pose Landmarks
 G - Toggle Gesture Recognition
+Z - Toggle Zone Mode
+1 - Create Pick Zone
+2 - Create Drop Zone
+Delete - Delete all Zones
 L - Toggle Landmarks
 C - Toggle Connections
 R - Reset Settings

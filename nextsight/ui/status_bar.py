@@ -53,10 +53,10 @@ class StatusBar(QStatusBar):
         self.addPermanentWidget(self.camera_status)
         
         # Detection status
-        self.detection_status = QLabel("Detection: Inactive")
-        self.detection_status.setMinimumWidth(130)
-        self.detection_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.addPermanentWidget(self.detection_status)
+        # self.detection_status = QLabel("Detection: Inactive")
+        # self.detection_status.setMinimumWidth(130)
+        # self.detection_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # self.addPermanentWidget(self.detection_status)
         
         # Hands counter
         self.hands_counter = QLabel("Hands: 0")
@@ -95,14 +95,14 @@ class StatusBar(QStatusBar):
         self.addPermanentWidget(self.drop_counter)
         
         # Hand interaction status
-        self.hand_interaction_status = QLabel("No hand interaction")
-        self.hand_interaction_status.setMinimumWidth(150)
-        self.hand_interaction_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.hand_interaction_status.setStyleSheet("color: #ffffff; font-weight: bold;")
-        self.addPermanentWidget(self.hand_interaction_status)
+        # self.hand_interaction_status = QLabel("No hand interaction")
+        # self.hand_interaction_status.setMinimumWidth(150)
+        # self.hand_interaction_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # self.hand_interaction_status.setStyleSheet("color: #ffffff; font-weight: bold;")
+        # self.addPermanentWidget(self.hand_interaction_status)
         
         # Keyboard instructions panel
-        self.keyboard_instructions = QLabel("Press F1 for help | Z: Toggle zones | 1: Create pick zone | 2: Create drop zone")
+        self.keyboard_instructions = QLabel("Press F1 for help")
         self.keyboard_instructions.setMinimumWidth(400)
         self.keyboard_instructions.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.keyboard_instructions.setStyleSheet("color: #66ccff; font-weight: bold; font-size: 9pt;")
@@ -131,12 +131,12 @@ class StatusBar(QStatusBar):
             self.camera_status.setStyleSheet("color: #ff6b6b; font-weight: bold;")
         
         # Detection status
-        if self.is_detection_active:
-            self.detection_status.setText("Detection: Active")
-            self.detection_status.setStyleSheet("color: #00ff00; font-weight: bold;")
-        else:
-            self.detection_status.setText("Detection: Inactive")
-            self.detection_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
+        # if self.is_detection_active:
+        #     self.detection_status.setText("Detection: Active")
+        #     self.detection_status.setStyleSheet("color: #00ff00; font-weight: bold;")
+        # else:
+        #     self.detection_status.setText("Detection: Inactive")
+        #     self.detection_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
         
         # Hands counter with color coding
         self.hands_counter.setText(f"Hands: {self.hands_detected}")
@@ -356,8 +356,8 @@ class StatusBar(QStatusBar):
             text = "No hand interaction"
             color = "#ffffff"
         
-        self.hand_interaction_status.setText(text)
-        self.hand_interaction_status.setStyleSheet(f"color: {color}; font-weight: bold;")
+        # self.hand_interaction_status.setText(text)
+        # self.hand_interaction_status.setStyleSheet(f"color: {color}; font-weight: bold;")
         
         # Auto-reset after 3 seconds for detected/pick/drop events
         if interaction_type in ["detected", "pick", "drop"]:

@@ -197,7 +197,6 @@ class MainWindow(QMainWindow):
                 self.logger.info("Keyboard: Pose landmarks toggle requested")
                 
             elif key_text == 'g':
-                self.toggle_gesture_recognition_requested.emit()
                 self.logger.info("Keyboard: Gesture recognition toggle requested")
                 
             elif key_text == 'l':
@@ -268,7 +267,7 @@ F1 - Show this help dialog
 ESC - Exit application"""
         
         msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("Keyboard Controls - NextSight v2")
+        msg_box.setWindowTitle("NextSight - Keyboard Controls")
         msg_box.setText(help_text)
         msg_box.setIcon(QMessageBox.Icon.Information)
         msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
