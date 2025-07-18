@@ -192,34 +192,38 @@ class IntersectionDetector:
                         event_type = "entered" if state.is_inside else "exited"
                         self.logger.info(f"Hand {hand_id} {event_type} zone {zone.id} (confidence: {intersection_result['confidence']:.2f}, gesture: {gesture})")
                     elif gesture in ['pinch', 'closed']:
-                        # Check gesture cooldown before creating pick event
-                        if self._can_generate_gesture_event(hand_id, 'pick'):
-                            self.logger.info(f"Pick gesture detected: {hand_id} in zone {zone.id} (gesture: {gesture})")
-                            # Create pick event
-                            pick_event = event.copy()
-                            pick_event['type'] = 'pick_gesture_detected'
-                            pick_event['gesture'] = gesture
-                            results['events'].append(pick_event)
-                            
-                            # Update gesture cooldown
-                            self._update_gesture_cooldown(hand_id, 'pick')
-                        else:
-                            self.logger.debug(f"Pick gesture cooldown active for {hand_id}")
+                        # Only create pick events for PICK zones
+                        if zone.zone_type == ZoneType.PICK:
+                            # Check gesture cooldown before creating pick event
+                            if self._can_generate_gesture_event(hand_id, 'pick'):
+                                self.logger.info(f"Pick gesture detected: {hand_id} in pick zone {zone.id} (gesture: {gesture})")
+                                # Create pick event
+                                pick_event = event.copy()
+                                pick_event['type'] = 'pick_gesture_detected'
+                                pick_event['gesture'] = gesture
+                                results['events'].append(pick_event)
+                                
+                                # Update gesture cooldown
+                                self._update_gesture_cooldown(hand_id, 'pick')
+                            else:
+                                self.logger.debug(f"Pick gesture cooldown active for {hand_id}")
                             
                     elif gesture == 'open':
-                        # Check gesture cooldown before creating drop event
-                        if self._can_generate_gesture_event(hand_id, 'drop'):
-                            self.logger.info(f"Drop gesture detected: {hand_id} in zone {zone.id} (gesture: {gesture})")
-                            # Create drop event
-                            drop_event = event.copy()
-                            drop_event['type'] = 'drop_gesture_detected'
-                            drop_event['gesture'] = gesture
-                            results['events'].append(drop_event)
-                            
-                            # Update gesture cooldown
-                            self._update_gesture_cooldown(hand_id, 'drop')
-                        else:
-                            self.logger.debug(f"Drop gesture cooldown active for {hand_id}")
+                        # Only create drop events for DROP zones
+                        if zone.zone_type == ZoneType.DROP:
+                            # Check gesture cooldown before creating drop event
+                            if self._can_generate_gesture_event(hand_id, 'drop'):
+                                self.logger.info(f"Drop gesture detected: {hand_id} in drop zone {zone.id} (gesture: {gesture})")
+                                # Create drop event
+                                drop_event = event.copy()
+                                drop_event['type'] = 'drop_gesture_detected'
+                                drop_event['gesture'] = gesture
+                                results['events'].append(drop_event)
+                                
+                                # Update gesture cooldown
+                                self._update_gesture_cooldown(hand_id, 'drop')
+                            else:
+                                self.logger.debug(f"Drop gesture cooldown active for {hand_id}")
                     
                     # Update zone state
                     if state.is_inside:

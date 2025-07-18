@@ -124,8 +124,10 @@ class ZoneConfig:
         self.default_border_width = 2
         self.default_confidence_threshold = 0.7
         
-        # Load existing configuration
-        self.load_zones()
+        # Initialize with empty zones for fresh session
+        # Note: Previous behavior loaded existing zones, causing session persistence
+        # Load is now manual via load_zones() method if needed
+        self.zones = []
     
     def add_zone(self, zone: Zone) -> bool:
         """Add new zone to configuration"""

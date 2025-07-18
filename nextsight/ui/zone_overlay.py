@@ -61,6 +61,14 @@ class ZoneOverlay(QWidget):
     def set_zones(self, zones: List[Zone]):
         """Update zones to display"""
         self.zones = zones.copy() if zones else []
+        
+        # Clear intersection data for zones that no longer exist
+        if self.zone_intersections:
+            current_zone_ids = {zone.id for zone in self.zones}
+            stale_intersection_ids = set(self.zone_intersections.keys()) - current_zone_ids
+            for stale_id in stale_intersection_ids:
+                self.zone_intersections.pop(stale_id, None)
+        
         self.update()
     
     def set_zone_intersections(self, intersections: Dict[str, List[Dict]]):

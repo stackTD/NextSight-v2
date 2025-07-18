@@ -70,7 +70,7 @@ class ZoneManager(QObject):
         self.setup_timers()
         
         self.logger = logging.getLogger(__name__)
-        self.logger.info("Zone Manager initialized")
+        self.logger.info("Zone Manager initialized with fresh session")
     
     def setup_connections(self):
         """Setup signal connections between components"""
