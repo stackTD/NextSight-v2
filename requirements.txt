@@ -4,3 +4,11 @@ mediapipe==0.10.14
 numpy==1.26.4
 Pillow==10.4.0
 pyinstaller==6.11.1
+# MediaPipe dependencies (explicitly listed for PyInstaller)
+matplotlib>=3.0.0
+protobuf>=4.25.3,<5.0.0
+attrs>=19.1.0
+absl-py
+flatbuffers>=2.0
+opencv-contrib-python
+sounddevice>=0.4.4
