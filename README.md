@@ -46,6 +46,56 @@ pip install -r requirements.txt
 - MediaPipe 0.10.14 - Hand detection ML models
 - NumPy 1.26.4 - Numerical computing
 - Pillow 10.4.0 - Image processing
+- PyInstaller 6.11.1 - Standalone executable builder
+
+## Building Standalone Executable
+
+### Overview
+NextSight v2 can be built into a standalone executable file that doesn't require Python installation on the target machine. This is perfect for distribution and deployment.
+
+### Quick Build
+
+#### Windows
+```batch
+build.bat
+```
+
+#### Cross-Platform (Linux, macOS, Windows with Git Bash)
+```bash
+./build.sh
+```
+
+### Manual Build Process
+If you prefer to build manually:
+
+1. **Install Build Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Build Executable**
+   ```bash
+   pyinstaller --clean nextsight.spec
+   ```
+
+3. **Locate Output**
+   The executable will be created in the `dist/` directory:
+   - Windows: `dist/NextSight-v2.exe`
+   - Linux/macOS: `dist/NextSight-v2`
+
+### Build Configuration
+The build process is configured via `nextsight.spec` which includes:
+- Single-file executable generation
+- All necessary dependencies bundled
+- Optimized for distribution (UPX compression)
+- Windows version information metadata
+- Proper handling of MediaPipe and OpenCV data files
+
+### Build Output
+- **File Size**: ~275-300 MB (includes all dependencies)
+- **Architecture**: Matches build platform (x64 recommended)
+- **Dependencies**: All Python libraries and Qt frameworks included
+- **Standalone**: No Python installation required on target system
 
 ## Usage
 
