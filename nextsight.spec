@@ -18,7 +18,30 @@ main_script = str(app_dir / 'main.py')
 added_files = [
     # Include zones configuration
     (str(app_dir / 'zones.json'), '.'),
+    
+    # MediaPipe model files and data
+    # Note: The following paths will be resolved at build time
 ]
+
+# Add MediaPipe model files dynamically
+try:
+    import mediapipe as mp
+    import os
+    mp_path = os.path.dirname(mp.__file__)
+    
+    # Add MediaPipe modules directory (contains .tflite model files)
+    modules_path = os.path.join(mp_path, 'modules')
+    if os.path.exists(modules_path):
+        added_files.append((modules_path, 'mediapipe/modules'))
+    
+    # Add MediaPipe python directory
+    python_path = os.path.join(mp_path, 'python')
+    if os.path.exists(python_path):
+        added_files.append((python_path, 'mediapipe/python'))
+        
+except ImportError:
+    print("Warning: MediaPipe not found during spec evaluation")
+    pass
 
 # Hidden imports for dynamic loading and complex dependencies
 hidden_imports = [
@@ -47,7 +70,7 @@ hidden_imports = [
     'PIL',
     'PIL.Image',
     
-    # MediaPipe and dependencies
+    # MediaPipe and all its dependencies
     'mediapipe',
     'mediapipe.python',
     'mediapipe.framework',
@@ -56,20 +79,48 @@ hidden_imports = [
     'mediapipe.python.solutions.drawing_utils',
     'mediapipe.python.solutions.drawing_styles',
     
+    # MediaPipe required dependencies
+    'matplotlib',
+    'matplotlib.pyplot',
+    'matplotlib.backends',
+    'matplotlib.backends.backend_agg',
+    'protobuf',
+    'google.protobuf',
+    'google.protobuf.internal',
+    'attrs',
+    'absl',
+    'absl.flags',
+    'absl.logging',
+    'flatbuffers',
+    'sounddevice',
+    
+    # JAX dependencies (required by MediaPipe)
+    'jax',
+    'jaxlib',
+    'opt_einsum',
+    'ml_dtypes',
+    
+    # Scientific computing
+    'scipy',
+    'scipy.spatial',
+    'scipy.spatial.distance',
+    
     # Common hidden imports for GUI applications
     'pkg_resources.py2_warn',
     'pkg_resources.markers',
 ]
 
-# Excluded modules to reduce size
+# Excluded modules to reduce size (only exclude what's truly not needed)
 excludes = [
-    'matplotlib',
-    'scipy.spatial.distance',
-    'scipy.sparse',
     'IPython',
     'jupyter',
     'notebook',
     'tkinter',
+    'test',
+    'tests',
+    'unittest',
+    'pytest',
+    'doctest',
 ]
 
 # Binary excludes to reduce size
