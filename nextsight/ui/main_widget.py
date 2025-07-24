@@ -187,3 +187,7 @@ class MainWidget(QWidget):
     def get_camera_widget(self) -> CameraWidget:
         """Get reference to camera widget"""
         return self.camera_widget
+    
+    def get_control_panel(self) -> EnhancedControlPanel:
+        """Get reference to control panel"""
+        return self.control_panel

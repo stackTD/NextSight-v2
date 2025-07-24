@@ -31,6 +31,10 @@ class ZoneManager(QObject):
     pick_event_detected = pyqtSignal(str, str)  # hand_id, zone_id
     drop_event_detected = pyqtSignal(str, str)  # hand_id, zone_id
     
+    # Signals for process integration
+    process_pick_event = pyqtSignal(str, str)  # hand_id, zone_id
+    process_drop_event = pyqtSignal(str, str)  # hand_id, zone_id
+    
     def __init__(self, config_file: str = "zones.json"):
         super().__init__()
         
@@ -108,14 +112,14 @@ class ZoneManager(QObject):
         self.detection_active = enabled
         self.logger.info(f"Zone detection {'enabled' if enabled else 'disabled'}")
     
-    def start_zone_creation(self, zone_type: str) -> bool:
-        """Start interactive zone creation"""
+    def start_zone_creation(self, zone_type: str, custom_name: str = None) -> bool:
+        """Start interactive zone creation with optional custom name"""
         if not self.is_enabled:
             return False
         
         try:
-            self.creator.start_zone_creation(zone_type, self.frame_width, self.frame_height)
-            self.logger.info(f"Started creating {zone_type} zone")
+            self.creator.start_zone_creation(zone_type, self.frame_width, self.frame_height, custom_name)
+            self.logger.info(f"Started creating {zone_type} zone" + (f" with name '{custom_name}'" if custom_name else ""))
             return True
         except Exception as e:
             self.logger.error(f"Failed to start zone creation: {e}")
@@ -279,6 +283,8 @@ class ZoneManager(QObject):
                                 }
                                 
                                 self.pick_event_detected.emit(event['hand_id'], event['zone_id'])
+                                # Also emit for process management
+                                self.process_pick_event.emit(event['hand_id'], event['zone_id'])
                                 self.logger.info(f"Pick event: {event['hand_id']} in {event['zone_id']}")
                                 
                                 # Mark this enter event as processed
@@ -296,6 +302,8 @@ class ZoneManager(QObject):
                                     pick_info = self.active_picks.pop(hand_id)
                                     
                                     self.drop_event_detected.emit(event['hand_id'], event['zone_id'])
+                                    # Also emit for process management
+                                    self.process_drop_event.emit(event['hand_id'], event['zone_id'])
                                     self.logger.info(f"Drop event: {event['hand_id']} in {event['zone_id']} (consistent with pick from {pick_info['zone_id']})")
                                     
                                     # Mark this enter event as processed
@@ -320,6 +328,8 @@ class ZoneManager(QObject):
                         }
                         
                         self.pick_event_detected.emit(event['hand_id'], event['zone_id'])
+                        # Also emit for process management
+                        self.process_pick_event.emit(event['hand_id'], event['zone_id'])
                         self.logger.info(f"Pick gesture: {event['hand_id']} performed {event['gesture']} in {event['zone_id']}")
                         
                         # Mark as processed with a timeout to allow for natural gesture repetition
@@ -341,6 +351,8 @@ class ZoneManager(QObject):
                             pick_info = self.active_picks.pop(hand_id)
                             
                             self.drop_event_detected.emit(event['hand_id'], event['zone_id'])
+                            # Also emit for process management
+                            self.process_drop_event.emit(event['hand_id'], event['zone_id'])
                             self.logger.info(f"Drop gesture: {event['hand_id']} performed {event['gesture']} in {event['zone_id']} (consistent with pick from {pick_info['zone_id']})")
                             
                             # Mark as processed with a timeout to allow for natural gesture repetition

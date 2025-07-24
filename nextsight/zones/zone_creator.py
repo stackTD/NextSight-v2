@@ -45,9 +45,10 @@ class ZoneCreator(QObject):
         
         # Zone naming
         self.zone_counter = {'pick': 0, 'drop': 0}
+        self.custom_zone_name = None  # For process-specific zone names
     
-    def start_zone_creation(self, zone_type: str, frame_width: int, frame_height: int):
-        """Start interactive zone creation"""
+    def start_zone_creation(self, zone_type: str, frame_width: int, frame_height: int, custom_name: str = None):
+        """Start interactive zone creation with optional custom name"""
         if self.is_creating:
             self.cancel_zone_creation()
         
@@ -57,6 +58,7 @@ class ZoneCreator(QObject):
         self.is_creating = True
         self.start_point = None
         self.current_point = None
+        self.custom_zone_name = custom_name  # Store custom name for process zones
         
         self.zone_creation_started.emit(zone_type)
     
@@ -67,6 +69,7 @@ class ZoneCreator(QObject):
             self.creation_mode = None
             self.start_point = None
             self.current_point = None
+            self.custom_zone_name = None  # Clear custom name
             self.zone_creation_cancelled.emit()
     
     def handle_mouse_press(self, event: QMouseEvent, widget_size: Tuple[int, int]) -> bool:
@@ -129,6 +132,7 @@ class ZoneCreator(QObject):
                     self.creation_mode = None
                     self.start_point = None
                     self.current_point = None
+                    self.custom_zone_name = None  # Clear custom name
                     return True
                 else:
                     # Invalid zone, keep creating
@@ -234,8 +238,13 @@ class ZoneCreator(QObject):
         zone_type = ZoneType.PICK if self.creation_mode == 'pick' else ZoneType.DROP
         
         # Generate zone name
-        self.zone_counter[self.creation_mode] += 1
-        zone_name = f"{self.creation_mode.title()} Zone {self.zone_counter[self.creation_mode]}"
+        if self.custom_zone_name:
+            # Use custom name for process-specific zones
+            zone_name = self.custom_zone_name
+        else:
+            # Use default naming for regular zones
+            self.zone_counter[self.creation_mode] += 1
+            zone_name = f"{self.creation_mode.title()} Zone {self.zone_counter[self.creation_mode]}"
         
         # Create zone ID
         timestamp = int(time.time() * 1000) % 100000  # Last 5 digits of timestamp

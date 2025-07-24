@@ -5,11 +5,13 @@ Professional detection controls with keyboard shortcuts display
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
                              QPushButton, QLabel, QGroupBox, QSlider, QCheckBox,
-                             QSpacerItem, QSizePolicy, QFrame, QTextEdit)
+                             QSpacerItem, QSizePolicy, QFrame, QTextEdit, QComboBox,
+                             QStackedWidget)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon
 from nextsight.utils.config import config
 from nextsight.utils.detection_config import detection_config, get_keyboard_help
+from nextsight.ui.process_widget import ProcessManagementWidget
 import logging
 
 
@@ -26,6 +28,12 @@ class EnhancedControlPanel(QWidget):
     confidence_threshold_changed = pyqtSignal(float)
     reset_detection_settings_requested = pyqtSignal()
     
+    # Signals for process management
+    mode_changed = pyqtSignal(str)  # 'detection' or 'processes'
+    create_process_requested = pyqtSignal(str)  # process_name
+    delete_process_requested = pyqtSignal(str)  # process_id
+    zone_creation_requested = pyqtSignal(str, str)  # zone_type, zone_name
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         
@@ -37,6 +45,9 @@ class EnhancedControlPanel(QWidget):
         self.pose_landmarks_enabled = True
         self.gesture_recognition_enabled = False
         
+        # Current mode
+        self.current_mode = "detection"  # "detection" or "processes"
+        
         self.logger = logging.getLogger(__name__)
         
         self.setup_ui()
@@ -47,6 +58,66 @@ class EnhancedControlPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
         layout.setContentsMargins(10, 10, 10, 10)
+        
+        # Mode selector dropdown
+        mode_layout = QHBoxLayout()
+        mode_label = QLabel("Mode:")
+        mode_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        mode_label.setStyleSheet("color: #ffffff;")
+        mode_layout.addWidget(mode_label)
+        
+        self.mode_selector = QComboBox()
+        self.mode_selector.addItems(["Detection", "Processes"])
+        self.mode_selector.setStyleSheet("""
+            QComboBox {
+                background-color: #3e3e42;
+                color: white;
+                border: 1px solid #007ACC;
+                padding: 5px;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QComboBox:hover {
+                background-color: #4e4e52;
+            }
+            QComboBox::drop-down {
+                border: none;
+            }
+            QComboBox::down-arrow {
+                width: 12px;
+                height: 12px;
+            }
+        """)
+        self.mode_selector.currentTextChanged.connect(self.on_mode_changed)
+        mode_layout.addWidget(self.mode_selector)
+        mode_layout.addStretch()
+        layout.addLayout(mode_layout)
+        
+        # Stacked widget for different modes
+        self.stacked_widget = QStackedWidget()
+        
+        # Detection mode widget
+        self.detection_widget = self.create_detection_widget()
+        self.stacked_widget.addWidget(self.detection_widget)
+        
+        # Process mode widget
+        self.process_widget = ProcessManagementWidget()
+        self.process_widget.process_created.connect(self.on_process_created)
+        self.process_widget.process_deleted.connect(self.on_process_deleted)
+        self.process_widget.zone_creation_requested.connect(self.on_zone_creation_requested)
+        self.stacked_widget.addWidget(self.process_widget)
+        
+        layout.addWidget(self.stacked_widget)
+        
+        # Add stretch to push everything to top
+        layout.addStretch()
+    
+    def create_detection_widget(self):
+        """Create the detection controls widget"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(15)
+        layout.setContentsMargins(0, 0, 0, 0)
         
         # Title
         title_label = QLabel("Detection Controls")
@@ -104,8 +175,7 @@ class EnhancedControlPanel(QWidget):
         reset_btn.clicked.connect(self.on_reset_settings)
         layout.addWidget(reset_btn)
         
-        # Add stretch to push everything to top
-        layout.addStretch()
+        return widget
     
     def create_hand_detection_group(self) -> QGroupBox:
         """Create hand detection control group"""
@@ -368,3 +438,51 @@ ESC - Exit Application"""
                 self.pose_status.setText(f"Status: Pose detected ({confidence:.2f})")
             else:
                 self.pose_status.setText("Status: Active (no pose)")
+    
+    def on_mode_changed(self, mode_text: str):
+        """Handle mode selection change"""
+        mode = mode_text.lower()
+        self.current_mode = mode
+        
+        if mode == "detection":
+            self.stacked_widget.setCurrentWidget(self.detection_widget)
+        elif mode == "processes":
+            self.stacked_widget.setCurrentWidget(self.process_widget)
+        
+        self.mode_changed.emit(mode)
+        self.logger.info(f"Control panel mode changed to: {mode}")
+    
+    def on_process_created(self, process_name: str):
+        """Handle process creation request"""
+        self.create_process_requested.emit(process_name or "")
+    
+    def on_process_deleted(self, process_id: str):
+        """Handle process deletion request"""
+        self.delete_process_requested.emit(process_id)
+    
+    def on_zone_creation_requested(self, zone_type: str, zone_name: str):
+        """Handle zone creation request"""
+        self.zone_creation_requested.emit(zone_type, zone_name)
+    
+    def add_process_to_list(self, process):
+        """Add a process to the process management widget"""
+        self.process_widget.add_process(process)
+    
+    def remove_process_from_list(self, process_id: str):
+        """Remove a process from the process management widget"""
+        self.process_widget.remove_process(process_id)
+    
+    def update_process_in_list(self, process):
+        """Update a process in the process management widget"""
+        self.process_widget.update_process(process)
+    
+    def get_current_mode(self) -> str:
+        """Get the current mode (detection or processes)"""
+        return self.current_mode
+    
+    def set_mode(self, mode: str):
+        """Set the current mode programmatically"""
+        if mode == "detection":
+            self.mode_selector.setCurrentText("Detection")
+        elif mode == "processes":
+            self.mode_selector.setCurrentText("Processes")

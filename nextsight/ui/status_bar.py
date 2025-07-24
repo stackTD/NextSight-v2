@@ -32,6 +32,11 @@ class StatusBar(QStatusBar):
         self.last_pick_time = 0
         self.last_drop_time = 0
         
+        # Process status tracking
+        self.process_message = ""
+        self.process_message_color = "white"
+        self.process_message_timer = None
+        
         self.setup_ui()
         
         # Update timer
@@ -98,6 +103,14 @@ class StatusBar(QStatusBar):
         self.hand_interaction_status = QLabel("No hand interaction")
         self.hand_interaction_status.setMinimumWidth(150)
         self.hand_interaction_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.addPermanentWidget(self.hand_interaction_status)
+        
+        # Process status (for process completion messages)
+        self.process_status = QLabel("")
+        self.process_status.setMinimumWidth(200)
+        self.process_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.process_status.setStyleSheet("font-weight: bold;")
+        self.addPermanentWidget(self.process_status)
         self.hand_interaction_status.setStyleSheet("color: #ffffff; font-weight: bold;")
         self.addPermanentWidget(self.hand_interaction_status)
         
@@ -361,4 +374,36 @@ class StatusBar(QStatusBar):
         
         # Auto-reset after 3 seconds for detected/pick/drop events
         if interaction_type in ["detected", "pick", "drop"]:
+            QTimer.singleShot(3000, lambda: self.show_hand_interaction("none"))
+    
+    def show_process_message(self, message: str, color: str = "white", timeout: int = 5000):
+        """Show process completion/error message"""
+        self.process_message = message
+        self.process_message_color = color
+        
+        # Set the text and color
+        self.process_status.setText(message)
+        
+        if color == "green":
+            self.process_status.setStyleSheet("color: #00ff00; font-weight: bold;")
+        elif color == "red":
+            self.process_status.setStyleSheet("color: #ff6b6b; font-weight: bold;")
+        else:
+            self.process_status.setStyleSheet("color: #ffffff; font-weight: bold;")
+        
+        # Clear message after timeout
+        if self.process_message_timer:
+            self.process_message_timer.stop()
+        
+        self.process_message_timer = QTimer()
+        self.process_message_timer.timeout.connect(self.clear_process_message)
+        self.process_message_timer.start(timeout)
+    
+    def clear_process_message(self):
+        """Clear the process status message"""
+        self.process_status.setText("")
+        self.process_status.setStyleSheet("")
+        if self.process_message_timer:
+            self.process_message_timer.stop()
+            self.process_message_timer = None
             QTimer.singleShot(3000, lambda: self.show_hand_interaction("none"))

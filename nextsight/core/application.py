@@ -17,6 +17,9 @@ from nextsight.utils.config import config
 from nextsight.zones.zone_manager import ZoneManager
 from nextsight.ui.context_menu import show_zone_context_menu, show_zone_properties_dialog
 
+# Process management imports  
+from nextsight.core.process_manager import ProcessManager
+
 
 class NextSightApplication:
     """Main NextSight v2 application"""
@@ -38,6 +41,11 @@ class NextSightApplication:
         self.main_window = None
         self.camera_thread = None
         self.zone_manager = None
+        self.process_manager = None
+        
+        # Process zone creation tracking
+        self.current_process_creation = None  # Track which process is being created
+        self.current_process_zone_stage = None  # 'pick' or 'drop'
         
         # Setup application
         self.setup_application()
@@ -66,6 +74,9 @@ class NextSightApplication:
             # Setup zone management system
             self.zone_manager = ZoneManager()
             
+            # Setup process management system
+            self.process_manager = ProcessManager()
+            
             # Connect signals
             self.setup_connections()
             
@@ -78,13 +89,14 @@ class NextSightApplication:
     
     def setup_connections(self):
         """Setup signal connections between components"""
-        if not self.main_window or not self.camera_thread or not self.zone_manager:
+        if not self.main_window or not self.camera_thread or not self.zone_manager or not self.process_manager:
             return
         
         # Get references to UI components
         main_widget = self.main_window.get_main_widget()
         camera_widget = main_widget.get_camera_widget()
         status_bar = self.main_window.get_status_bar()
+        control_panel = main_widget.get_control_panel()
         
         # Camera thread to UI connections
         self.camera_thread.frame_ready.connect(camera_widget.update_frame)
@@ -106,10 +118,21 @@ class NextSightApplication:
         self.zone_manager.pick_event_detected.connect(status_bar.on_pick_event)
         self.zone_manager.drop_event_detected.connect(status_bar.on_drop_event)
         
+        # Process management connections
+        self.zone_manager.process_pick_event.connect(self.process_manager.handle_pick_event)
+        self.zone_manager.process_drop_event.connect(self.process_manager.handle_drop_event)
+        self.process_manager.status_message.connect(status_bar.show_process_message)
+        
+        # Control panel process management connections
+        control_panel.create_process_requested.connect(self.create_process)
+        control_panel.delete_process_requested.connect(self.delete_process)
+        control_panel.zone_creation_requested.connect(self.create_zone_for_process)
+        
         # Zone creator status connections
         zone_creator = self.zone_manager.get_zone_creator()
         zone_creator.zone_creation_started.connect(lambda zone_type: status_bar.set_zone_creation_mode(zone_type))
         zone_creator.zone_creation_completed.connect(lambda zone: status_bar.set_zone_creation_mode(None))
+        zone_creator.zone_creation_completed.connect(self.on_zone_created)
         zone_creator.zone_creation_cancelled.connect(lambda: status_bar.set_zone_creation_mode(None))
         
         # UI control connections (backward compatibility)
@@ -433,6 +456,152 @@ class NextSightApplication:
             message = "Zones loaded successfully" if success else "Failed to load zones"
             self.main_window.get_status_bar().show_zone_message(message)
             self.logger.info(message)
+    
+    # Process Management Methods
+    
+    @pyqtSlot(str)
+    def create_process(self, process_name: str):
+        """Create a new process"""
+        try:
+            process = self.process_manager.create_process(process_name if process_name else None)
+            
+            # Add to control panel
+            main_widget = self.main_window.get_main_widget()
+            control_panel = main_widget.get_control_panel()
+            control_panel.add_process_to_list(process)
+            
+            # Show instruction message and start pick zone creation
+            self.show_info_dialog(
+                "Create Process Zones",
+                f"Now create zones for '{process.name}'.\n\n"
+                "First, create the pick zone by clicking and dragging on the camera view."
+            )
+            
+            # Extract process number from ID (e.g., "process_1" -> "1")
+            process_number = process.id.split('_')[-1]
+            
+            # Start pick zone creation
+            pick_zone_name = f"Pick Zone {process_number}"
+            self.create_zone_for_process("PICK", pick_zone_name)
+            
+            self.logger.info(f"Created process: {process.name} ({process.id})")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to create process: {e}")
+            self.show_error_dialog("Process Creation Error", str(e))
+    
+    @pyqtSlot(str)
+    def delete_process(self, process_id: str):
+        """Delete a process"""
+        try:
+            # Get associated zone IDs before deletion
+            pick_zone_id, drop_zone_id = self.process_manager.get_process_zone_ids(process_id)
+            
+            # Delete the process
+            success = self.process_manager.delete_process(process_id)
+            
+            if success:
+                # Delete associated zones
+                if pick_zone_id:
+                    self.zone_manager.delete_zone(pick_zone_id)
+                if drop_zone_id:
+                    self.zone_manager.delete_zone(drop_zone_id)
+                
+                # Update control panel
+                main_widget = self.main_window.get_main_widget()
+                control_panel = main_widget.get_control_panel()
+                control_panel.remove_process_from_list(process_id)
+                
+                self.logger.info(f"Deleted process: {process_id}")
+            else:
+                self.show_error_dialog("Process Deletion Error", "Failed to delete process")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to delete process: {e}")
+            self.show_error_dialog("Process Deletion Error", str(e))
+    
+    @pyqtSlot(str, str)
+    def create_zone_for_process(self, zone_type: str, zone_name: str):
+        """Create a zone for a process"""
+        try:
+            # Start zone creation with custom name
+            success = self.zone_manager.start_zone_creation(zone_type, zone_name)
+            
+            if success:
+                status_bar = self.main_window.get_status_bar()
+                status_bar.show_zone_message(f"Creating {zone_type} zone: {zone_name}")
+                self.logger.info(f"Started creating {zone_type} zone: {zone_name}")
+                
+                # Track this as a process zone creation
+                # The zone type in the name indicates which stage
+                if "Pick Zone" in zone_name:
+                    self.current_process_zone_stage = "pick"
+                elif "Drop Zone" in zone_name:
+                    self.current_process_zone_stage = "drop"
+                
+            else:
+                self.show_error_dialog("Zone Creation Error", f"Failed to start {zone_type} zone creation")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to create zone for process: {e}")
+            self.show_error_dialog("Zone Creation Error", str(e))
+    
+    @pyqtSlot(object)
+    def on_zone_created(self, zone):
+        """Handle zone creation completion"""
+        try:
+            # Check if this is a process zone
+            if self.current_process_zone_stage:
+                # Extract process number from zone name
+                if "Pick Zone" in zone.name or "Drop Zone" in zone.name:
+                    # Extract number from zone name (e.g., "Pick Zone 1" -> "1")
+                    parts = zone.name.split()
+                    if len(parts) >= 3:
+                        process_number = parts[-1]
+                        process_id = f"process_{process_number}"
+                        
+                        # Get the process
+                        process = self.process_manager.get_process(process_id)
+                        if process:
+                            if self.current_process_zone_stage == "pick":
+                                # Associate pick zone and prompt for drop zone
+                                self.process_manager.associate_zones(process_id, zone.id, process.drop_zone_id)
+                                
+                                # Show message and start drop zone creation
+                                self.show_info_dialog(
+                                    "Pick Zone Created",
+                                    f"Pick zone created for {process.name}!\nNow create the drop zone."
+                                )
+                                
+                                # Automatically start drop zone creation
+                                drop_zone_name = f"Drop Zone {process_number}"
+                                self.create_zone_for_process("DROP", drop_zone_name)
+                                
+                            elif self.current_process_zone_stage == "drop":
+                                # Associate drop zone and complete process creation
+                                pick_zone_id, _ = self.process_manager.get_process_zone_ids(process_id)
+                                self.process_manager.associate_zones(process_id, pick_zone_id, zone.id)
+                                
+                                # Update control panel
+                                main_widget = self.main_window.get_main_widget()
+                                control_panel = main_widget.get_control_panel()
+                                control_panel.update_process_in_list(process)
+                                
+                                # Show completion message
+                                self.show_info_dialog(
+                                    "Process Created Successfully",
+                                    f"Process '{process.name}' has been created with pick and drop zones!\n\n"
+                                    "You can now use the pick and drop zones for workflow operations."
+                                )
+                                
+                                # Clear process creation tracking
+                                self.current_process_zone_stage = None
+                        else:
+                            self.logger.warning(f"Process {process_id} not found for zone association")
+                            
+        except Exception as e:
+            self.logger.error(f"Error handling zone creation: {e}")
+            self.show_error_dialog("Zone Creation Error", str(e))
     
     def show_error_dialog(self, title: str, message: str):
         """Show error dialog to user"""
