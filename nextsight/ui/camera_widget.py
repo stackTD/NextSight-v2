@@ -175,47 +175,47 @@ class CameraWidget(QWidget):
         # Handle new detection info format
         y_offset = 50
         
-        if 'hands' in self.detection_info:
-            hands_info = self.detection_info['hands']
-            hands_detected = hands_info.get('hands_detected', 0)
-            hands_text = f"Hands: {hands_detected}"
-            painter.setPen(QPen(Qt.GlobalColor.cyan, 2))
-            painter.drawText(10, y_offset, hands_text)
-            y_offset += 25
+        # if 'hands' in self.detection_info:
+        #     hands_info = self.detection_info['hands']
+        #     hands_detected = hands_info.get('hands_detected', 0)
+        #     hands_text = f"Hands: {hands_detected}"
+        #     painter.setPen(QPen(Qt.GlobalColor.cyan, 2))
+        #     painter.drawText(10, y_offset, hands_text)
+        #     y_offset += 25
             
-            # Draw handedness labels for new format
-            if 'handedness' in hands_info and hands_info['handedness']:
-                for hand_type in hands_info['handedness']:
-                    painter.setPen(QPen(Qt.GlobalColor.yellow, 2))
-                    painter.drawText(10, y_offset, f"• {hand_type}")
-                    y_offset += 20
-        else:
-            # Backward compatibility with old format
-            hands_detected = self.detection_info.get('hands_detected', 0)
-            hands_text = f"Hands: {hands_detected}"
-            painter.setPen(QPen(Qt.GlobalColor.cyan, 2))
-            painter.drawText(10, y_offset, hands_text)
-            y_offset += 25
+        #     # Draw handedness labels for new format
+        #     if 'handedness' in hands_info and hands_info['handedness']:
+        #         for hand_type in hands_info['handedness']:
+        #             painter.setPen(QPen(Qt.GlobalColor.yellow, 2))
+        #             painter.drawText(10, y_offset, f"• {hand_type}")
+        #             y_offset += 20
+        # else:
+        #     # Backward compatibility with old format
+        #     hands_detected = self.detection_info.get('hands_detected', 0)
+        #     hands_text = f"Hands: {hands_detected}"
+        #     painter.setPen(QPen(Qt.GlobalColor.cyan, 2))
+        #     painter.drawText(10, y_offset, hands_text)
+        #     y_offset += 25
             
-            # Draw handedness labels for old format
-            if 'handedness' in self.detection_info and self.detection_info['handedness']:
-                for hand_type in self.detection_info['handedness']:
-                    painter.setPen(QPen(Qt.GlobalColor.yellow, 2))
-                    painter.drawText(10, y_offset, f"• {hand_type}")
-                    y_offset += 20
+        #     # Draw handedness labels for old format
+        #     if 'handedness' in self.detection_info and self.detection_info['handedness']:
+        #         for hand_type in self.detection_info['handedness']:
+        #             painter.setPen(QPen(Qt.GlobalColor.yellow, 2))
+        #             painter.drawText(10, y_offset, f"• {hand_type}")
+        #             y_offset += 20
         
-        # Draw pose detection info
-        if 'pose' in self.detection_info:
-            pose_info = self.detection_info['pose']
-            pose_detected = pose_info.get('pose_detected', False)
-            pose_confidence = pose_info.get('pose_confidence', 0.0)
+        # # Draw pose detection info
+        # if 'pose' in self.detection_info:
+        #     pose_info = self.detection_info['pose']
+        #     pose_detected = pose_info.get('pose_detected', False)
+        #     pose_confidence = pose_info.get('pose_confidence', 0.0)
             
-            pose_text = f"Pose: {'Yes' if pose_detected else 'No'}"
-            if pose_detected:
-                pose_text += f" ({pose_confidence:.2f})"
+        #     pose_text = f"Pose: {'Yes' if pose_detected else 'No'}"
+        #     if pose_detected:
+        #         pose_text += f" ({pose_confidence:.2f})"
             
-            painter.setPen(QPen(Qt.GlobalColor.magenta, 2))
-            painter.drawText(10, y_offset, pose_text)
+        #     painter.setPen(QPen(Qt.GlobalColor.magenta, 2))
+        #     painter.drawText(10, y_offset, pose_text)
         
         painter.end()
         return overlay_image
