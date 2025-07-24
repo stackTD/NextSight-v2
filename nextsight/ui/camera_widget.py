@@ -18,6 +18,7 @@ class CameraWidget(QWidget):
     
     # Signals
     clicked = pyqtSignal()
+    zone_context_menu_requested = pyqtSignal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
