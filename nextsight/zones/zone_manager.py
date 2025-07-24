@@ -112,14 +112,14 @@ class ZoneManager(QObject):
         self.detection_active = enabled
         self.logger.info(f"Zone detection {'enabled' if enabled else 'disabled'}")
     
-    def start_zone_creation(self, zone_type: str) -> bool:
-        """Start interactive zone creation"""
+    def start_zone_creation(self, zone_type: str, custom_name: str = None) -> bool:
+        """Start interactive zone creation with optional custom name"""
         if not self.is_enabled:
             return False
         
         try:
-            self.creator.start_zone_creation(zone_type, self.frame_width, self.frame_height)
-            self.logger.info(f"Started creating {zone_type} zone")
+            self.creator.start_zone_creation(zone_type, self.frame_width, self.frame_height, custom_name)
+            self.logger.info(f"Started creating {zone_type} zone" + (f" with name '{custom_name}'" if custom_name else ""))
             return True
         except Exception as e:
             self.logger.error(f"Failed to start zone creation: {e}")

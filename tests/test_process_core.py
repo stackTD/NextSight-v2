@@ -144,6 +144,13 @@ class TestProcessManager:
         """Get process by ID"""
         return self.processes.get(process_id)
     
+    def get_process_by_name(self, name: str) -> Optional[TestProcess]:
+        """Get process by name"""
+        for process in self.processes.values():
+            if process.name == name:
+                return process
+        return None
+    
     def get_active_picks_info(self) -> Dict[str, Dict]:
         """Get information about active picks"""
         info = {}

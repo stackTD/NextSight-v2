@@ -43,6 +43,10 @@ class NextSightApplication:
         self.zone_manager = None
         self.process_manager = None
         
+        # Process zone creation tracking
+        self.current_process_creation = None  # Track which process is being created
+        self.current_process_zone_stage = None  # 'pick' or 'drop'
+        
         # Setup application
         self.setup_application()
     
@@ -128,6 +132,7 @@ class NextSightApplication:
         zone_creator = self.zone_manager.get_zone_creator()
         zone_creator.zone_creation_started.connect(lambda zone_type: status_bar.set_zone_creation_mode(zone_type))
         zone_creator.zone_creation_completed.connect(lambda zone: status_bar.set_zone_creation_mode(None))
+        zone_creator.zone_creation_completed.connect(self.on_zone_created)
         zone_creator.zone_creation_cancelled.connect(lambda: status_bar.set_zone_creation_mode(None))
         
         # UI control connections (backward compatibility)
@@ -465,8 +470,19 @@ class NextSightApplication:
             control_panel = main_widget.get_control_panel()
             control_panel.add_process_to_list(process)
             
-            # Start zone creation flow
-            control_panel.process_widget.start_zone_creation_flow(process.id, process.name)
+            # Show instruction message and start pick zone creation
+            self.show_info_dialog(
+                "Create Process Zones",
+                f"Now create zones for '{process.name}'.\n\n"
+                "First, create the pick zone by clicking and dragging on the camera view."
+            )
+            
+            # Extract process number from ID (e.g., "process_1" -> "1")
+            process_number = process.id.split('_')[-1]
+            
+            # Start pick zone creation
+            pick_zone_name = f"Pick Zone {process_number}"
+            self.create_zone_for_process("PICK", pick_zone_name)
             
             self.logger.info(f"Created process: {process.name} ({process.id})")
             
@@ -508,18 +524,83 @@ class NextSightApplication:
     def create_zone_for_process(self, zone_type: str, zone_name: str):
         """Create a zone for a process"""
         try:
-            # Start zone creation
-            success = self.zone_manager.start_zone_creation(zone_type)
+            # Start zone creation with custom name
+            success = self.zone_manager.start_zone_creation(zone_type, zone_name)
             
             if success:
                 status_bar = self.main_window.get_status_bar()
                 status_bar.show_zone_message(f"Creating {zone_type} zone: {zone_name}")
                 self.logger.info(f"Started creating {zone_type} zone: {zone_name}")
+                
+                # Track this as a process zone creation
+                # The zone type in the name indicates which stage
+                if "Pick Zone" in zone_name:
+                    self.current_process_zone_stage = "pick"
+                elif "Drop Zone" in zone_name:
+                    self.current_process_zone_stage = "drop"
+                
             else:
                 self.show_error_dialog("Zone Creation Error", f"Failed to start {zone_type} zone creation")
                 
         except Exception as e:
             self.logger.error(f"Failed to create zone for process: {e}")
+            self.show_error_dialog("Zone Creation Error", str(e))
+    
+    @pyqtSlot(object)
+    def on_zone_created(self, zone):
+        """Handle zone creation completion"""
+        try:
+            # Check if this is a process zone
+            if self.current_process_zone_stage:
+                # Extract process number from zone name
+                if "Pick Zone" in zone.name or "Drop Zone" in zone.name:
+                    # Extract number from zone name (e.g., "Pick Zone 1" -> "1")
+                    parts = zone.name.split()
+                    if len(parts) >= 3:
+                        process_number = parts[-1]
+                        process_id = f"process_{process_number}"
+                        
+                        # Get the process
+                        process = self.process_manager.get_process(process_id)
+                        if process:
+                            if self.current_process_zone_stage == "pick":
+                                # Associate pick zone and prompt for drop zone
+                                self.process_manager.associate_zones(process_id, zone.id, process.drop_zone_id)
+                                
+                                # Show message and start drop zone creation
+                                self.show_info_dialog(
+                                    "Pick Zone Created",
+                                    f"Pick zone created for {process.name}!\nNow create the drop zone."
+                                )
+                                
+                                # Automatically start drop zone creation
+                                drop_zone_name = f"Drop Zone {process_number}"
+                                self.create_zone_for_process("DROP", drop_zone_name)
+                                
+                            elif self.current_process_zone_stage == "drop":
+                                # Associate drop zone and complete process creation
+                                pick_zone_id, _ = self.process_manager.get_process_zone_ids(process_id)
+                                self.process_manager.associate_zones(process_id, pick_zone_id, zone.id)
+                                
+                                # Update control panel
+                                main_widget = self.main_window.get_main_widget()
+                                control_panel = main_widget.get_control_panel()
+                                control_panel.update_process_in_list(process)
+                                
+                                # Show completion message
+                                self.show_info_dialog(
+                                    "Process Created Successfully",
+                                    f"Process '{process.name}' has been created with pick and drop zones!\n\n"
+                                    "You can now use the pick and drop zones for workflow operations."
+                                )
+                                
+                                # Clear process creation tracking
+                                self.current_process_zone_stage = None
+                        else:
+                            self.logger.warning(f"Process {process_id} not found for zone association")
+                            
+        except Exception as e:
+            self.logger.error(f"Error handling zone creation: {e}")
             self.show_error_dialog("Zone Creation Error", str(e))
     
     def show_error_dialog(self, title: str, message: str):
