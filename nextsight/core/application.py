@@ -123,10 +123,15 @@ class NextSightApplication:
         self.zone_manager.process_drop_event.connect(self.process_manager.handle_drop_event)
         self.process_manager.status_message.connect(status_bar.show_process_message)
         
-        # Control panel process management connections
-        control_panel.create_process_requested.connect(self.create_process)
-        control_panel.delete_process_requested.connect(self.delete_process)
-        control_panel.zone_creation_requested.connect(self.create_zone_for_process)
+        # Control panel process management connections - Fixed connections
+        try:
+            control_panel.create_process_requested.connect(self.create_process)
+            control_panel.delete_process_requested.connect(self.delete_process)
+            control_panel.zone_creation_requested.connect(self.create_zone_for_process)
+            self.logger.info("Process management connections established successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to connect process management signals: {e}")
+            # Continue with other connections even if process management fails
         
         # Zone creator status connections
         zone_creator = self.zone_manager.get_zone_creator()
@@ -459,7 +464,6 @@ class NextSightApplication:
     
     # Process Management Methods
     
-    @pyqtSlot(str)
     def create_process(self, process_name: str):
         """Create a new process"""
         try:
@@ -490,7 +494,6 @@ class NextSightApplication:
             self.logger.error(f"Failed to create process: {e}")
             self.show_error_dialog("Process Creation Error", str(e))
     
-    @pyqtSlot(str)
     def delete_process(self, process_id: str):
         """Delete a process"""
         try:
@@ -520,7 +523,6 @@ class NextSightApplication:
             self.logger.error(f"Failed to delete process: {e}")
             self.show_error_dialog("Process Deletion Error", str(e))
     
-    @pyqtSlot(str, str)
     def create_zone_for_process(self, zone_type: str, zone_name: str):
         """Create a zone for a process"""
         try:
@@ -538,7 +540,7 @@ class NextSightApplication:
                     self.current_process_zone_stage = "pick"
                 elif "Drop Zone" in zone_name:
                     self.current_process_zone_stage = "drop"
-                
+            
             else:
                 self.show_error_dialog("Zone Creation Error", f"Failed to start {zone_type} zone creation")
                 
@@ -546,7 +548,6 @@ class NextSightApplication:
             self.logger.error(f"Failed to create zone for process: {e}")
             self.show_error_dialog("Zone Creation Error", str(e))
     
-    @pyqtSlot(object)
     def on_zone_created(self, zone):
         """Handle zone creation completion"""
         try:

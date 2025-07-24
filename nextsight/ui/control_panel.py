@@ -126,12 +126,12 @@ class EnhancedControlPanel(QWidget):
         title_label.setStyleSheet("color: #007ACC; margin-bottom: 10px;")
         layout.addWidget(title_label)
         
-        # Separator
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
-        separator.setStyleSheet("background-color: #3e3e42;")
-        layout.addWidget(separator)
+        # # Separator
+        # separator = QFrame()
+        # separator.setFrameShape(QFrame.Shape.HLine)
+        # separator.setFrameShadow(QFrame.Shadow.Sunken)
+        # separator.setStyleSheet("background-color: #3e3e42;")
+        # layout.addWidget(separator)
         
         # Hand detection group
         hand_group = self.create_hand_detection_group()
