@@ -167,10 +167,10 @@ class CameraWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
         # Draw FPS counter
-        fps_text = f"FPS: {self.fps_display:.1f}"
+        # fps_text = f"FPS: {self.fps_display:.1f}"
         painter.setPen(QPen(Qt.GlobalColor.green, 2))
         painter.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        painter.drawText(10, 25, fps_text)
+        # painter.drawText(10, 25, fps_text)
         
         # Handle new detection info format
         y_offset = 50
@@ -242,7 +242,7 @@ class CameraWidget(QWidget):
         
         info_text = f"""
 <b>Detection Status:</b><br>
-• Hands detected: {hands_count}<br>
+
 • Frame count: {self.frame_count}<br>
 • FPS: {self.fps_display:.1f}<br>
         """.strip()
