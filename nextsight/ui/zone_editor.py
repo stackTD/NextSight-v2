@@ -67,10 +67,16 @@ class ZoneEditor(QWidget):
         
         # Visual settings
         self.control_point_color = QColor("#ffffff")
-        self.control_point_border_color = QColor("#000000")
+        self.control_point_border_color = QColor("#007ACC")
         self.control_point_hover_color = QColor("#00ff00")
+        self.control_point_active_color = QColor("#ff8800")
         self.selection_border_color = QColor("#ffff00")
-        self.selection_border_width = 2
+        self.selection_border_width = 3
+        self.selection_border_dash_pattern = [5, 3]  # Dashed border pattern
+        
+        # Animation settings
+        self.animation_timer = None
+        self.animation_frame = 0
         
         # Frame dimensions for coordinate conversion
         self.frame_width = 640
@@ -95,8 +101,16 @@ class ZoneEditor(QWidget):
             self.selected_zone_id = None
             self.control_points.clear()
             self.zone_deselected.emit()
+            if self.animation_timer:
+                self.animation_timer.stop()
         else:
             self._update_control_points()
+            # Start animation timer for visual effects
+            if not self.animation_timer:
+                from PyQt6.QtCore import QTimer
+                self.animation_timer = QTimer()
+                self.animation_timer.timeout.connect(self._animate)
+            self.animation_timer.start(100)  # 10 FPS animation
         self.update()
     
     def select_zone(self, zone_id: str):
@@ -161,83 +175,103 @@ class ZoneEditor(QWidget):
         if not self.editing_enabled:
             return
         
-        if event.button() == Qt.MouseButton.LeftButton:
-            # Check if clicking on a control point
-            click_pos = self._widget_to_normalized_coordinates(event.pos())
-            if click_pos:
-                clicked_point = self._get_control_point_at_position(click_pos)
-                
-                if clicked_point:
-                    # Start dragging control point
-                    self.dragging_point = clicked_point
-                    self.drag_start_pos = event.pos()
-                    clicked_point.dragging = True
+        try:
+            if event.button() == Qt.MouseButton.LeftButton:
+                # Check if clicking on a control point
+                click_pos = self._widget_to_normalized_coordinates(event.pos())
+                if click_pos:
+                    clicked_point = self._get_control_point_at_position(click_pos)
                     
-                    # Store original zone bounds for constraint checking
-                    selected_zone = self._get_selected_zone()
-                    if selected_zone:
-                        self.original_zone_bounds = {
-                            'x': selected_zone.x,
-                            'y': selected_zone.y,
-                            'width': selected_zone.width,
-                            'height': selected_zone.height
-                        }
+                    if clicked_point:
+                        # Start dragging control point
+                        self.dragging_point = clicked_point
+                        self.drag_start_pos = event.pos()
+                        clicked_point.dragging = True
+                        
+                        # Store original zone bounds for constraint checking
+                        selected_zone = self._get_selected_zone()
+                        if selected_zone:
+                            self.original_zone_bounds = {
+                                'x': selected_zone.x,
+                                'y': selected_zone.y,
+                                'width': selected_zone.width,
+                                'height': selected_zone.height
+                            }
+                        
+                        self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                        self.update()
+                        return
                     
-                    self.setCursor(Qt.CursorShape.ClosedHandCursor)
-                    self.update()
-                    return
-                
-                # Check if clicking on a zone to select it
-                clicked_zone = self._get_zone_at_position(click_pos)
-                if clicked_zone:
-                    self.select_zone(clicked_zone.id)
-                else:
-                    self.deselect_zone()
+                    # Check if clicking on a zone to select it
+                    clicked_zone = self._get_zone_at_position(click_pos)
+                    if clicked_zone:
+                        self.select_zone(clicked_zone.id)
+                    else:
+                        self.deselect_zone()
+        except Exception as e:
+            print(f"Error in zone editor mouse press: {e}")
+            # Reset state on error
+            self.dragging_point = None
+            self.drag_start_pos = None
+            self.setCursor(Qt.CursorShape.ArrowCursor)
     
     def mouseMoveEvent(self, event: QMouseEvent):
         """Handle mouse move for dragging and hover effects"""
         if not self.editing_enabled:
             return
         
-        # Update control point hover states
-        mouse_pos = self._widget_to_normalized_coordinates(event.pos())
-        if mouse_pos:
-            hovered_point = self._get_control_point_at_position(mouse_pos)
+        try:
+            # Update control point hover states
+            mouse_pos = self._widget_to_normalized_coordinates(event.pos())
+            if mouse_pos:
+                hovered_point = self._get_control_point_at_position(mouse_pos)
+                
+                # Update hover states
+                for point in self.control_points:
+                    point.hovered = (point == hovered_point)
+                
+                # Set appropriate cursor
+                if hovered_point:
+                    self.setCursor(self._get_cursor_for_control_point(hovered_point))
+                else:
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
             
-            # Update hover states
-            for point in self.control_points:
-                point.hovered = (point == hovered_point)
-            
-            # Set appropriate cursor
-            if hovered_point:
-                self.setCursor(self._get_cursor_for_control_point(hovered_point))
-            else:
-                self.setCursor(Qt.CursorShape.ArrowCursor)
-        
-        # Handle control point dragging
-        if self.dragging_point and self.drag_start_pos:
-            self._update_zone_from_drag(event.pos())
-            self.update()
+            # Handle control point dragging
+            if self.dragging_point and self.drag_start_pos:
+                self._update_zone_from_drag(event.pos())
+                self.update()
+        except Exception as e:
+            print(f"Error in zone editor mouse move: {e}")
     
     def mouseReleaseEvent(self, event: QMouseEvent):
         """Handle mouse release to complete dragging"""
         if not self.editing_enabled:
             return
         
-        if event.button() == Qt.MouseButton.LeftButton and self.dragging_point:
-            # Complete the drag operation
-            self.dragging_point.dragging = False
+        try:
+            if event.button() == Qt.MouseButton.LeftButton and self.dragging_point:
+                # Complete the drag operation
+                self.dragging_point.dragging = False
+                self.dragging_point = None
+                self.drag_start_pos = None
+                self.original_zone_bounds = None
+                
+                # Emit zone modification signal
+                selected_zone = self._get_selected_zone()
+                if selected_zone:
+                    self.zone_modified.emit(selected_zone)
+                
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+                self.update()
+        except Exception as e:
+            print(f"Error in zone editor mouse release: {e}")
+            # Reset state on error
+            if self.dragging_point:
+                self.dragging_point.dragging = False
             self.dragging_point = None
             self.drag_start_pos = None
             self.original_zone_bounds = None
-            
-            # Emit zone modification signal
-            selected_zone = self._get_selected_zone()
-            if selected_zone:
-                self.zone_modified.emit(selected_zone)
-            
             self.setCursor(Qt.CursorShape.ArrowCursor)
-            self.update()
     
     def _widget_to_normalized_coordinates(self, widget_pos: QPoint) -> Optional[Tuple[float, float]]:
         """Convert widget coordinates to normalized coordinates (0-1)"""
@@ -474,13 +508,22 @@ class ZoneEditor(QWidget):
         if not widget_rect:
             return
         
-        # Draw dashed border
+        # Animated dashed border
         pen = QPen(self.selection_border_color, self.selection_border_width)
         pen.setStyle(Qt.PenStyle.DashLine)
+        
+        # Animate dash offset for a "marching ants" effect
+        dash_pattern = [6, 4]  # dash, space
+        dash_offset = (self.animation_frame // 3) % (sum(dash_pattern))
+        pen.setDashPattern(dash_pattern)
+        pen.setDashOffset(dash_offset)
+        
         painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         
-        painter.drawRect(*widget_rect)
+        # Draw outer selection border
+        rect = widget_rect
+        painter.drawRect(rect[0] - 2, rect[1] - 2, rect[2] + 4, rect[3] + 4)
     
     def _draw_control_point(self, painter: QPainter, point: ControlPoint):
         """Draw a control point"""
@@ -493,26 +536,44 @@ class ZoneEditor(QWidget):
         
         # Choose colors based on state
         if point.dragging:
-            fill_color = self.control_point_hover_color.lighter(150)
+            fill_color = self.control_point_active_color
             border_color = self.control_point_border_color
+            border_width = 3
         elif point.hovered:
             fill_color = self.control_point_hover_color
             border_color = self.control_point_border_color
+            border_width = 2
+            # Add slight glow effect for hovered points
+            glow_size = size + 4
+            glow_color = QColor(fill_color)
+            glow_color.setAlpha(80)
+            painter.setPen(QPen(glow_color, 1))
+            painter.setBrush(QBrush(glow_color))
+            painter.drawEllipse(x - glow_size//2, y - glow_size//2, glow_size, glow_size)
         else:
             fill_color = self.control_point_color
             border_color = self.control_point_border_color
+            border_width = 2
         
         # Draw control point
-        painter.setPen(QPen(border_color, 2))
+        painter.setPen(QPen(border_color, border_width))
         painter.setBrush(QBrush(fill_color))
         
         # Draw different shapes for different point types
         if point.point_type.startswith('corner'):
             # Square for corners
             painter.drawRect(x - size//2, y - size//2, size, size)
+            # Add small inner square for visual appeal
+            inner_size = size - 4
+            painter.setPen(QPen(border_color, 1))
+            painter.drawRect(x - inner_size//2, y - inner_size//2, inner_size, inner_size)
         else:
             # Circle for edge midpoints
             painter.drawEllipse(x - size//2, y - size//2, size, size)
+            # Add small inner circle
+            inner_size = size - 4
+            painter.setPen(QPen(border_color, 1))
+            painter.drawEllipse(x - inner_size//2, y - inner_size//2, inner_size, inner_size)
     
     def _zone_to_widget_rect(self, zone: Zone) -> Optional[Tuple[int, int, int, int]]:
         """Convert zone normalized coordinates to widget rectangle"""
@@ -529,3 +590,9 @@ class ZoneEditor(QWidget):
         height = bottom_right[1] - y
         
         return (x, y, width, height)
+    
+    def _animate(self):
+        """Animation update for visual effects"""
+        self.animation_frame = (self.animation_frame + 1) % 60
+        if self.selected_zone_id or any(point.hovered for point in self.control_points):
+            self.update()

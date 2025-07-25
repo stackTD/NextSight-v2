@@ -323,9 +323,17 @@ class StatusBar(QStatusBar):
         """Set zone system enabled status"""
         self.zones_enabled = enabled
         if enabled:
-            self.showMessage("Zone system enabled - Press Z to toggle, 1/2 to create zones", 3000)
+            self.showMessage("Zone system enabled - Press Z to toggle, 1/2 to create zones, E to edit", 3000)
         else:
             self.showMessage("Zone system disabled", 2000)
+        self.update_indicators()
+    
+    def set_zone_editing_enabled(self, enabled: bool):
+        """Set zone editing mode status"""
+        if enabled:
+            self.showMessage("Zone editing ENABLED - Click zones to select and drag control points to resize", 4000)
+        else:
+            self.showMessage("Zone editing DISABLED", 2000)
         self.update_indicators()
     
     def on_pick_event(self, hand_id: str, zone_id: str):

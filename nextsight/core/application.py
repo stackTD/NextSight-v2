@@ -285,6 +285,20 @@ class NextSightApplication:
     def run(self):
         """Run the application"""
         try:
+            # Load configurations before showing window
+            try:
+                if self.zone_manager:
+                    self.zone_manager.load_configuration()
+                    self.logger.info("Zone configuration loaded")
+                
+                if self.process_manager:
+                    # Process manager already loads on initialization, but ensure session consistency
+                    self.process_manager.reset_session_data()
+                    self.logger.info("Process session data reset")
+                    
+            except Exception as e:
+                self.logger.warning(f"Error loading configuration: {e}")
+            
             # Show main window
             self.main_window.show()
             
@@ -304,6 +318,19 @@ class NextSightApplication:
     def on_close_event(self, event):
         """Handle application close event"""
         self.logger.info("Application closing...")
+        
+        try:
+            # Save current configuration before closing
+            if self.zone_manager:
+                self.zone_manager.save_configuration()
+                self.logger.info("Zone configuration saved")
+            
+            if self.process_manager:
+                self.process_manager.save_processes()
+                self.logger.info("Process configuration saved")
+                
+        except Exception as e:
+            self.logger.error(f"Error saving configuration on close: {e}")
         
         # Stop camera thread
         self.stop_camera()
@@ -369,12 +396,9 @@ class NextSightApplication:
         new_state = not camera_widget.zone_editing_enabled
         camera_widget.set_zone_editing_enabled(new_state)
         
-        # Update status bar
+        # Update status bar with enhanced feedback
         status_bar = self.main_window.get_status_bar()
-        if new_state:
-            status_bar.show_zone_message("Zone editing mode ENABLED - Click zones to edit", 3000)
-        else:
-            status_bar.show_zone_message("Zone editing mode DISABLED", 3000)
+        status_bar.set_zone_editing_enabled(new_state)
         
         status = "enabled" if new_state else "disabled"
         self.logger.info(f"Zone editing mode {status}")
