@@ -284,53 +284,6 @@ class CameraWidget(QWidget):
         self.frame_count = 0
         self.fps_display = 0.0
     
-    def mousePressEvent(self, event):
-        """Handle mouse press events for zone creation and selection"""
-        if not self.zone_creation_mode:
-            # Forward to zone manager for zone selection
-            if hasattr(self, 'zone_manager'):
-                # Convert QPoint to QPointF for PyQt6 compatibility
-                local_pos = QPointF(event.pos())
-                global_pos = QPointF(event.globalPos())
-                
-                camera_event = QMouseEvent(
-                    event.type(),
-                    local_pos,  # Use QPointF instead of QPoint
-                    global_pos,  # Use QPointF instead of QPoint
-                    event.button(),
-                    event.buttons(),
-                    event.modifiers()
-                )
-                
-                # Forward to zone manager
-                self.zone_manager.mousePressEvent(camera_event)
-            
-            super().mousePressEvent(event)
-            return
-        
-        # Zone creation logic
-        if event.button() == Qt.MouseButton.LeftButton:
-            # Convert to normalized coordinates
-            widget_size = self.size()
-            norm_x = event.pos().x() / widget_size.width()
-            norm_y = event.pos().y() / widget_size.height()
-            
-            if not self.creating_zone:
-                # Start creating zone
-                self.creating_zone = True
-                self.zone_start_point = (norm_x, norm_y)
-                self.zone_end_point = (norm_x, norm_y)
-                self.update()  # Trigger repaint
-            else:
-                # Finish creating zone
-                self.zone_end_point = (norm_x, norm_y)
-                self._finish_zone_creation()
-        
-        elif event.button() == Qt.MouseButton.RightButton:
-            # Cancel zone creation
-            if self.creating_zone:
-                self.cancel_zone_creation()
-    
     def resizeEvent(self, event):
         """Handle widget resize"""
         super().resizeEvent(event)
@@ -437,6 +390,10 @@ class CameraWidget(QWidget):
         """Handle zone creation preview updates"""
         if self.zone_overlay and self.zones_enabled:
             self.zone_overlay.set_preview_zone(preview_data)
+        
+        # Trigger repaint to show zone creation preview
+        if self.zones_enabled:
+            self.update()
     
     def on_zone_clicked(self, zone_id: str):
         """Handle zone click events"""
@@ -570,3 +527,21 @@ class CameraWidget(QWidget):
                 return  # Event handled by zone creator
         
         super().mouseReleaseEvent(event)
+    
+    def paintEvent(self, event):
+        """Handle paint events for zone creation preview"""
+        super().paintEvent(event)
+        
+        # Draw zone creation preview if active
+        if self.zone_manager and self.zones_enabled:
+            zone_creator = self.zone_manager.get_zone_creator()
+            if zone_creator.is_creating:
+                # Get camera label size for coordinate conversion
+                widget_size = (self.camera_label.width(), self.camera_label.height())
+                
+                # Create painter for camera label
+                painter = QPainter(self.camera_label)
+                try:
+                    zone_creator.draw_preview(painter, widget_size)
+                finally:
+                    painter.end()
