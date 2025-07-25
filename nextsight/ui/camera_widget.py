@@ -11,6 +11,7 @@ from typing import Optional, Dict, TYPE_CHECKING
 if TYPE_CHECKING:
     from nextsight.zones.zone_manager import ZoneManager
     from nextsight.ui.zone_overlay import ZoneOverlay
+    from nextsight.ui.zone_editor import ZoneEditor
 
 
 class CameraWidget(QWidget):
@@ -19,6 +20,8 @@ class CameraWidget(QWidget):
     # Signals
     clicked = pyqtSignal()
     zone_context_menu_requested = pyqtSignal()
+    zone_editing_toggled = pyqtSignal(bool)  # New signal for zone editing mode
+    zone_modified = pyqtSignal(object)        # New signal when zone is modified
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -37,7 +40,9 @@ class CameraWidget(QWidget):
         # Zone system integration
         self.zone_manager: Optional['ZoneManager'] = None
         self.zone_overlay: Optional['ZoneOverlay'] = None
+        self.zone_editor: Optional['ZoneEditor'] = None  # New zone editor
         self.zones_enabled = False
+        self.zone_editing_enabled = False  # New editing mode flag
         
         # Zone creation variables
         self.zone_creation_mode = False
@@ -127,10 +132,13 @@ class CameraWidget(QWidget):
         self.camera_label.setPixmap(pixmap)
         self.camera_label.setText("")  # Clear placeholder text
         
-        # Update zone overlay
-        if self.zone_overlay and self.zones_enabled:
-            self.zone_overlay.set_frame_size(qt_image.width(), qt_image.height())
-            self.zone_overlay.update()
+        # Update zone overlay and editor
+        if self.zones_enabled:
+            if self.zone_overlay:
+                self.zone_overlay.set_frame_size(qt_image.width(), qt_image.height())
+                self.zone_overlay.update()
+            if self.zone_editor and self.zone_editing_enabled:
+                self.zone_editor.set_frame_size(qt_image.width(), qt_image.height())
     
     def scale_image_to_fit(self, image: QImage) -> QImage:
         """Scale image to fit the widget while maintaining aspect ratio"""
@@ -330,9 +338,11 @@ class CameraWidget(QWidget):
         if self.current_image:
             self.update_frame(self.current_image, self.detection_info)
         
-        # Resize zone overlay to match camera label
+        # Resize zone overlay and editor to match camera label
         if self.zone_overlay:
             self.zone_overlay.setGeometry(self.camera_label.geometry())
+        if self.zone_editor:
+            self.zone_editor.setGeometry(self.camera_label.geometry())
     
     def set_zone_manager(self, zone_manager: 'ZoneManager'):
         """Set zone manager for zone functionality"""
@@ -345,6 +355,15 @@ class CameraWidget(QWidget):
             self.zone_overlay.setGeometry(self.camera_label.geometry())
             self.zone_overlay.zone_clicked.connect(self.on_zone_clicked)
             self.zone_overlay.zone_hovered.connect(self.on_zone_hovered)
+        
+        # Create zone editor
+        if not self.zone_editor:
+            from nextsight.ui.zone_editor import ZoneEditor
+            self.zone_editor = ZoneEditor(self)
+            self.zone_editor.setGeometry(self.camera_label.geometry())
+            self.zone_editor.zone_modified.connect(self.on_zone_modified)
+            self.zone_editor.zone_selected.connect(self.on_zone_selected_for_editing)
+            self.zone_editor.zone_deselected.connect(self.on_zone_deselected_for_editing)
         
         # Connect zone manager signals
         if zone_manager:
@@ -366,6 +385,8 @@ class CameraWidget(QWidget):
         self.zones_enabled = enabled
         if self.zone_overlay:
             self.zone_overlay.setVisible(enabled)
+        if self.zone_editor:
+            self.zone_editor.setVisible(enabled and self.zone_editing_enabled)
     
     def update_zone_intersections(self, intersections: Dict):
         """Update zone intersection data"""
@@ -374,27 +395,42 @@ class CameraWidget(QWidget):
     
     def on_zones_updated(self, *args):
         """Handle zone updates"""
-        if self.zone_manager and self.zone_overlay and self.zones_enabled:
+        if self.zone_manager and self.zones_enabled:
             zones = self.zone_manager.get_zones(active_only=True)
-            self.zone_overlay.set_zones(zones)
-            # Force update to ensure visual refresh
-            self.zone_overlay.update()
+            
+            # Update zone overlay
+            if self.zone_overlay:
+                self.zone_overlay.set_zones(zones)
+                self.zone_overlay.update()
+            
+            # Update zone editor
+            if self.zone_editor and self.zone_editing_enabled:
+                self.zone_editor.set_zones(zones)
     
     def on_zone_deleted(self, zone_id: str):
         """Handle zone deletion specifically"""
-        if self.zone_manager and self.zone_overlay and self.zones_enabled:
-            # Clear any selection/hover state for the deleted zone
-            if hasattr(self.zone_overlay, 'selected_zone_id') and self.zone_overlay.selected_zone_id == zone_id:
-                self.zone_overlay.selected_zone_id = None
-            if hasattr(self.zone_overlay, 'hovered_zone_id') and self.zone_overlay.hovered_zone_id == zone_id:
-                self.zone_overlay.hovered_zone_id = None
+        if self.zone_manager and self.zones_enabled:
+            # Clear any selection/hover state for the deleted zone in overlay
+            if self.zone_overlay:
+                if hasattr(self.zone_overlay, 'selected_zone_id') and self.zone_overlay.selected_zone_id == zone_id:
+                    self.zone_overlay.selected_zone_id = None
+                if hasattr(self.zone_overlay, 'hovered_zone_id') and self.zone_overlay.hovered_zone_id == zone_id:
+                    self.zone_overlay.hovered_zone_id = None
+            
+            # Clear any selection state in zone editor
+            if self.zone_editor and self.zone_editor.selected_zone_id == zone_id:
+                self.zone_editor.deselect_zone()
             
             # Update zones list
             zones = self.zone_manager.get_zones(active_only=True)
-            self.zone_overlay.set_zones(zones)
+            if self.zone_overlay:
+                self.zone_overlay.set_zones(zones)
+                self.zone_overlay.update()
+            
+            if self.zone_editor and self.zone_editing_enabled:
+                self.zone_editor.set_zones(zones)
             
             # Force immediate visual refresh
-            self.zone_overlay.update()
             self.update()  # Update the camera widget too
     
     def on_zone_preview_updated(self, preview_data):
@@ -421,6 +457,46 @@ class CameraWidget(QWidget):
         """Animate zone overlay effects"""
         if self.zone_overlay and self.zones_enabled:
             self.zone_overlay.animate_step()
+    
+    # Zone Editor Methods
+    
+    def set_zone_editing_enabled(self, enabled: bool):
+        """Enable or disable zone editing mode"""
+        self.zone_editing_enabled = enabled
+        
+        if self.zone_editor:
+            self.zone_editor.set_editing_enabled(enabled)
+            self.zone_editor.setVisible(enabled and self.zones_enabled)
+            
+            if enabled and self.zone_manager:
+                # Update zone editor with current zones
+                zones = self.zone_manager.get_zones()
+                self.zone_editor.set_zones(zones)
+        
+        self.zone_editing_toggled.emit(enabled)
+    
+    def on_zone_modified(self, zone):
+        """Handle zone modification from zone editor"""
+        if self.zone_manager:
+            # Update zone in zone manager
+            self.zone_manager.update_zone(zone)
+            
+            # Update zone overlay
+            zones = self.zone_manager.get_zones()
+            if self.zone_overlay:
+                self.zone_overlay.set_zones(zones)
+        
+        self.zone_modified.emit(zone)
+    
+    def on_zone_selected_for_editing(self, zone_id: str):
+        """Handle zone selection for editing"""
+        # Could add status updates or other feedback here
+        pass
+    
+    def on_zone_deselected_for_editing(self):
+        """Handle zone deselection for editing"""
+        # Could add status updates or other feedback here
+        pass
     
     def mousePressEvent(self, event: QMouseEvent):
         """Handle mouse press events for zone creation only"""

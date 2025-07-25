@@ -140,6 +140,7 @@ class MainWindow(QMainWindow):
     create_drop_zone_requested = pyqtSignal()
     toggle_zones_requested = pyqtSignal()
     clear_zones_requested = pyqtSignal()
+    toggle_zone_editing_requested = pyqtSignal()  # New signal for zone editing mode
     
     def __init__(self):
         super().__init__()
@@ -215,6 +216,10 @@ class MainWindow(QMainWindow):
                 self.toggle_zones_requested.emit()
                 self.logger.info("Keyboard: Toggle zones requested")
                 
+            elif key_text == 'e':
+                self.toggle_zone_editing_requested.emit()
+                self.logger.info("Keyboard: Toggle zone editing requested")
+                
             elif key_text == '1':
                 self.create_pick_zone_requested.emit()
                 self.logger.info("Keyboard: Create pick zone requested")
@@ -257,6 +262,7 @@ R - Reset all detection settings
 
 ZONE CONTROLS:
 Z - Toggle zone system
+E - Toggle zone editing mode
 1 - Create pick zone (click & drag)
 2 - Create drop zone (click & drag)
 Delete - Clear all zones

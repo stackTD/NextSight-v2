@@ -59,6 +59,11 @@ class EnhancedControlPanel(QWidget):
         layout.setSpacing(15)
         layout.setContentsMargins(10, 10, 10, 10)
         
+        # Set size policy to prevent excessive width in maximized mode
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        self.setMaximumWidth(320)  # Limit maximum width
+        self.setMinimumWidth(280)  # Ensure minimum width
+        
         # Mode selector dropdown
         mode_layout = QHBoxLayout()
         mode_label = QLabel("Mode:")
@@ -187,12 +192,14 @@ class EnhancedControlPanel(QWidget):
         self.hand_detection_toggle.setObjectName("toggleButton")
         self.hand_detection_toggle.setCheckable(True)
         self.hand_detection_toggle.setChecked(True)
+        self.hand_detection_toggle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.hand_detection_toggle)
         
         # Gesture recognition toggle
         self.gesture_toggle = QPushButton("Enable Gesture Recognition (G)")
         self.gesture_toggle.setObjectName("toggleButton")
         self.gesture_toggle.setCheckable(True)
+        self.gesture_toggle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.gesture_toggle)
         
         # Hand status
@@ -212,6 +219,7 @@ class EnhancedControlPanel(QWidget):
         self.pose_detection_toggle.setObjectName("toggleButton")
         self.pose_detection_toggle.setCheckable(True)
         self.pose_detection_toggle.setChecked(True)
+        self.pose_detection_toggle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.pose_detection_toggle)
         
         # Pose landmarks toggle
@@ -219,6 +227,7 @@ class EnhancedControlPanel(QWidget):
         self.pose_landmarks_toggle.setObjectName("toggleButton")
         self.pose_landmarks_toggle.setCheckable(True)
         self.pose_landmarks_toggle.setChecked(True)
+        self.pose_landmarks_toggle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.pose_landmarks_toggle)
         
         # Pose status

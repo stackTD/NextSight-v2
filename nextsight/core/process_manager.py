@@ -272,6 +272,9 @@ class ProcessManager(QObject):
                 process = Process(**process_data)
                 self.processes[pid] = process
             
+            # Ensure process counter is correct to avoid conflicts
+            self._update_process_counter()
+            
             self.logger.info(f"Loaded {len(self.processes)} processes from {self.config_file}")
             return True
             
@@ -310,3 +313,30 @@ class ProcessManager(QObject):
             'active_picks': active_picks,
             'success_rate': (total_completed / (total_completed + total_errors)) * 100 if (total_completed + total_errors) > 0 else 0.0
         }
+    
+    def _update_process_counter(self):
+        """Update process counter to avoid conflicts with existing processes"""
+        max_number = 0
+        for process_id in self.processes.keys():
+            # Extract number from process_id (e.g., "process_3" -> 3)
+            try:
+                number = int(process_id.split('_')[-1])
+                max_number = max(max_number, number)
+            except (ValueError, IndexError):
+                continue
+        
+        # Set counter to be one more than the highest existing number
+        self.process_counter = max_number + 1
+        self.logger.info(f"Updated process counter to {self.process_counter}")
+    
+    def reset_session_data(self):
+        """Reset session-specific data while preserving process definitions"""
+        # Clear active picks (these are session-specific)
+        self.active_picks.clear()
+        
+        # Reset error counts and completed counts (optional - comment out if you want to preserve)
+        # for process in self.processes.values():
+        #     process.completed_count = 0
+        #     process.error_count = 0
+        
+        self.logger.info("Session data reset")
